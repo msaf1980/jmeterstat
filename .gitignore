@@ -1,0 +1,6 @@
+vendor
+_vendor-*
+coverage.*
+/jmeterstat
+.vscode
+*.swp

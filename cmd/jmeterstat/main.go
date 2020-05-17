@@ -1,29 +1,32 @@
 package main
 
 import (
-	"bufio"
-	"encoding/csv"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"runtime/pprof"
-	//"github.com/msaf1980/jmetersstat/pkg/jmetercsv"
+	"sort"
+
+	"github.com/msaf1980/jmeterstat/pkg/jmetercsv"
+	"github.com/msaf1980/jmeterstat/pkg/statcalc"
+	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
 
 func main() {
 	csvFilename := flag.String("file", "", "JMeter results (CSV format)")
 
-	cpuprofile := flag.String("cpuprofile", "", "Write cpu profile to file")
+	cpuProfile := flag.String("cpuprofile", "", "Write cpu profile to file")
+	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
 	flag.Parse()
 	if len(*csvFilename) == 0 {
 		log.Fatal(fmt.Errorf("filename not set"))
 	}
 
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
+	if len(*cpuProfile) != 0 {
+		f, err := os.Create(*cpuProfile)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
@@ -34,24 +37,68 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	csvFile, err := os.Open(*csvFilename)
+	urlTransformRule, err := urltransform.NewURLTransformRule(*urlTransform)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	csvReader, err := jmetercsv.NewJmtrCsvReader(csvFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	//reader.ReuseRecord = true
-	line, err := reader.Read()
-	if err != nil {
-		log.Fatal(err)
-	}
+	var jmtrRecord jmetercsv.JmtrRecord
+	urlStat := map[string]map[string]*statcalc.StatCalculator{}
+
 	for {
-		line, err = reader.Read()
+		err = csvReader.Read(&jmtrRecord)
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
-		fmt.Printf("%s\n", line)
-		break
+		var url string
+		if len(urlTransformRule) > 0 {
+			url, err = urltransform.URLTransform(jmtrRecord.URL, urlTransformRule)
+			if err != nil {
+				log.Fatalf("%s: %s", err.Error(), jmtrRecord.URL)
+			} else if len(url) == 0 {
+				url = jmtrRecord.URL
+			}
+			//fmt.Printf("%s\n", url)
+		} else {
+			//fmt.Printf("%v\n", jmtrRecord)
+			url = jmtrRecord.URL
+		}
+
+		label, ok := urlStat[jmtrRecord.Label]
+		if !ok {
+			label = map[string]*statcalc.StatCalculator{}
+			urlStat[jmtrRecord.Label] = label
+		}
+		stat, ok := label[url]
+		if !ok {
+			stat = new(statcalc.StatCalculator)
+			stat.Init()
+			label[url] = stat
+		}
+		stat.AddValue(jmtrRecord.Elapsed)
+		//fmt.Printf("%s %.2f\n", url, jmtrRecord.Elapsed)
+	}
+	labels := make([]string, 0, len(urlStat))
+	for k := range urlStat {
+		labels = append(labels, k)
+	}
+	sort.Strings(labels)
+	for _, label := range labels {
+		stats := urlStat[label]
+		urls := make([]string, 0, len(stats))
+		for k := range stats {
+			urls = append(urls, k)
+		}
+		for _, url := range urls {
+			s := stats[url]
+			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
+				label, url, s.Count(), s.Max(), s.Min(), s.Mean(), s.Percentile(95), s.Percentile(99))
+		}
 	}
 }
