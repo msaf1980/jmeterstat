@@ -19,13 +19,13 @@ debug: FORCE
 
 test: FORCE
 	$(GO) test -coverprofile coverage.txt $(MODULE)/cmd/${NAME}
-	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/jmetercsv
+	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/jmeterreader
 	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/urltransform
 	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/statcalc
 
 vet:
 	${GO} vet $(MODULE)/cmd/${NAME}
-	$(GO) vet $(MODULE)/pkg/jmetercsv
+	$(GO) vet $(MODULE)/pkg/jmeterreader
 	$(GO) vet $(MODULE)/pkg/urltransform
 	$(GO) vet $(MODULE)/pkg/statcalc
 

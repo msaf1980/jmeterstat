@@ -9,10 +9,62 @@ import (
 	"runtime/pprof"
 	"sort"
 
-	"github.com/msaf1980/jmeterstat/pkg/jmetercsv"
-	"github.com/msaf1980/jmeterstat/pkg/statcalc"
+	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
+	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
+
+func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule) {
+	csvReader, err := jmeterreader.NewJmeterCsvReader(csvFilename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var jmtrRecord jmeterreader.JmtrRecord
+	urlStat := jmeterstat.JMeterURLStat{}
+	//var allThreads int
+
+	for {
+		err = csvReader.Read(&jmtrRecord)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal(err.Error())
+		}
+		var url string
+		if len(urlTransformRule) > 0 {
+			url, err = urltransform.URLTransform(jmtrRecord.URL, urlTransformRule)
+			if err != nil {
+				log.Fatalf("%s: %s", err.Error(), jmtrRecord.URL)
+			} else if len(url) == 0 {
+				url = jmtrRecord.URL
+			}
+			//fmt.Printf("%s\n", url)
+		} else {
+			//fmt.Printf("%v\n", jmtrRecord)
+			url = jmtrRecord.URL
+		}
+
+		jmeterstat.JMeterURLStatAdd(urlStat, url, &jmtrRecord)
+	}
+	labels := make([]string, 0, len(urlStat))
+	for k := range urlStat {
+		labels = append(labels, k)
+	}
+	sort.Strings(labels)
+	for _, label := range labels {
+		stats := urlStat[label]
+		urls := make([]string, 0, len(stats))
+		for k := range stats {
+			urls = append(urls, k)
+		}
+		for _, url := range urls {
+			s := stats[url]
+			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
+				label, url, s.Elapsed.Count(), s.Elapsed.Max(), s.Elapsed.Min(), s.Elapsed.Mean(),
+				s.Elapsed.Percentile(95), s.Elapsed.Percentile(99))
+		}
+	}
+}
 
 func main() {
 	csvFilename := flag.String("file", "", "JMeter results (CSV format)")
@@ -42,63 +94,5 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	csvReader, err := jmetercsv.NewJmtrCsvReader(csvFilename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var jmtrRecord jmetercsv.JmtrRecord
-	urlStat := map[string]map[string]*statcalc.StatCalculator{}
-
-	for {
-		err = csvReader.Read(&jmtrRecord)
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err.Error())
-		}
-		var url string
-		if len(urlTransformRule) > 0 {
-			url, err = urltransform.URLTransform(jmtrRecord.URL, urlTransformRule)
-			if err != nil {
-				log.Fatalf("%s: %s", err.Error(), jmtrRecord.URL)
-			} else if len(url) == 0 {
-				url = jmtrRecord.URL
-			}
-			//fmt.Printf("%s\n", url)
-		} else {
-			//fmt.Printf("%v\n", jmtrRecord)
-			url = jmtrRecord.URL
-		}
-
-		label, ok := urlStat[jmtrRecord.Label]
-		if !ok {
-			label = map[string]*statcalc.StatCalculator{}
-			urlStat[jmtrRecord.Label] = label
-		}
-		stat, ok := label[url]
-		if !ok {
-			stat = new(statcalc.StatCalculator)
-			stat.Init()
-			label[url] = stat
-		}
-		stat.AddValue(jmtrRecord.Elapsed)
-		//fmt.Printf("%s %.2f\n", url, jmtrRecord.Elapsed)
-	}
-	labels := make([]string, 0, len(urlStat))
-	for k := range urlStat {
-		labels = append(labels, k)
-	}
-	sort.Strings(labels)
-	for _, label := range labels {
-		stats := urlStat[label]
-		urls := make([]string, 0, len(stats))
-		for k := range stats {
-			urls = append(urls, k)
-		}
-		for _, url := range urls {
-			s := stats[url]
-			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
-				label, url, s.Count(), s.Max(), s.Min(), s.Mean(), s.Percentile(95), s.Percentile(99))
-		}
-	}
+	readCsv(csvFilename, urlTransformRule)
 }

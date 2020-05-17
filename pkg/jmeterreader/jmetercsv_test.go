@@ -1,4 +1,4 @@
-package jmetercsv
+package jmeterreader
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestCorrecJtmtrCsv(t *testing.T) {
+func TestCorrecJmeterCsv(t *testing.T) {
 	csvFilename := "test/correct.csv"
-	c, err := NewJmtrCsvReader(&csvFilename)
+	c, err := NewJmeterCsvReader(&csvFilename)
 	if err != nil {
 		t.Error(err)
 	}
@@ -34,9 +34,9 @@ func TestCorrecJtmtrCsv(t *testing.T) {
 	assert.Equal(t, float64(34.0), r.Connect, "Connect mismatch")
 }
 
-func TestIncompleteHeaderJtmtrCsv(t *testing.T) {
+func TestIncompleteHeaderJmeterCsv(t *testing.T) {
 	csvFilename := "test/incomplte_header.csv"
-	_, err := NewJmtrCsvReader(&csvFilename)
+	_, err := NewJmeterCsvReader(&csvFilename)
 	if err == nil {
 		err = fmt.Errorf("imcomplete header verify error")
 	}
@@ -45,9 +45,9 @@ func TestIncompleteHeaderJtmtrCsv(t *testing.T) {
 	}
 }
 
-func TestWrongFieldJtmtrCsv(t *testing.T) {
+func TestWrongFieldJmeterCsv(t *testing.T) {
 	csvFilename := "test/wrong_field.csv"
-	_, err := NewJmtrCsvReader(&csvFilename)
+	_, err := NewJmeterCsvReader(&csvFilename)
 	if err == nil {
 		err = fmt.Errorf("imcomplete header verify error")
 	}
@@ -56,9 +56,9 @@ func TestWrongFieldJtmtrCsv(t *testing.T) {
 	}
 }
 
-func TestOverFieldJtmtrCsv(t *testing.T) {
+func TestOverFieldJmeterCsv(t *testing.T) {
 	csvFilename := "test/over_field.csv"
-	_, err := NewJmtrCsvReader(&csvFilename)
+	_, err := NewJmeterCsvReader(&csvFilename)
 	if err == nil {
 		err = fmt.Errorf("imcomplete header verify error")
 	}
@@ -67,9 +67,9 @@ func TestOverFieldJtmtrCsv(t *testing.T) {
 	}
 }
 
-func TestNoFieldRecordJtmtrCsv(t *testing.T) {
+func TestNoFieldRecordJmeterCsv(t *testing.T) {
 	csvFilename := "test/no_field_record.csv"
-	c, err := NewJmtrCsvReader(&csvFilename)
+	c, err := NewJmeterCsvReader(&csvFilename)
 	if err != nil {
 		t.Error(err)
 	}
@@ -83,10 +83,10 @@ func TestNoFieldRecordJtmtrCsv(t *testing.T) {
 	}
 }
 
-func BenchmarkJmtrCsvReader(b *testing.B) {
+func BenchmarkJmeterCsvReader(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		csvFilename := "test/results.csv"
-		c, err := NewJmtrCsvReader(&csvFilename)
+		c, err := NewJmeterCsvReader(&csvFilename)
 		if err != nil {
 			b.Fatal(err)
 		}

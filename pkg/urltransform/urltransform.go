@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// URLNodeType is of URLNode type
 type URLNodeType int
 
 const (
@@ -18,7 +19,7 @@ const (
 	String
 )
 
-// URLTransformRule node
+// URLNode - URLTransformRule node
 type URLNode struct {
 	Type URLNodeType
 	Name string
@@ -27,7 +28,7 @@ type URLNode struct {
 // URL Transform rule
 type URLTransformRule []URLNode
 
-// Create transform rule. For example original URL
+// NewURLTransformRule create transform rule. For example original URL
 // {scheme}:://{location}/{path}?{param_name.name1}={param_value.name1}&{param_name.name2}={param_value.name2}
 func NewURLTransformRule(urltransform string) (URLTransformRule, error) {
 	var ut URLTransformRule
@@ -81,7 +82,7 @@ func NewURLTransformRule(urltransform string) (URLTransformRule, error) {
 	return ut, nil
 }
 
-// Compare URLTransformRules
+// URLTransformRuleEqual compare URLTransformRules
 func URLTransformRuleEqual(a, b URLTransformRule) bool {
 	if &a == &b {
 		return true
@@ -97,7 +98,7 @@ func URLTransformRuleEqual(a, b URLTransformRule) bool {
 	return true
 }
 
-// Transform url with rule with optional decode
+// URLTransform url with rule with optional decode
 func URLTransform(surl string, tr URLTransformRule) (string, error) {
 	u, err := url.ParseRequestURI(surl)
 	if err != nil {

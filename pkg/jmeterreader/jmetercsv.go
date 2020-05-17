@@ -1,4 +1,4 @@
-package jmetercsv
+package jmeterreader
 
 import (
 	"bufio"
@@ -8,8 +8,8 @@ import (
 	"strconv"
 )
 
-// JMeter CSV fileds index numbers
-type JmtrCsvHeader struct {
+// JmeterCsvHeader - JMeter CSV fileds index numbers
+type JmeterCsvHeader struct {
 	Length          int // fields count
 	TimeStamp       int8
 	Elapsed         int8
@@ -31,7 +31,7 @@ type JmtrCsvHeader struct {
 }
 
 // Set CSV fields index numbers
-func jmtrCsvGetHeader(line []string, head *JmtrCsvHeader) (err error) {
+func jmeterCsvGetHeader(line []string, head *JmeterCsvHeader) (err error) {
 	head.TimeStamp = -1
 	head.Elapsed = -1
 	head.Label = -1
@@ -167,17 +167,17 @@ func jmtrCsvGetHeader(line []string, head *JmtrCsvHeader) (err error) {
 	return
 }
 
-// JMter CSV Reader
-type JmtrCsvReader struct {
-	Header    JmtrCsvHeader
+// JmeterCsvReader JMter CSV Reader
+type JmeterCsvReader struct {
+	Header    JmeterCsvHeader
 	csvFile   *os.File
 	csvReader *csv.Reader
 }
 
-// Init Jmeter CSV Reader (aloocate and read header)
-func NewJmtrCsvReader(csvFilename *string) (*JmtrCsvReader, error) {
+// NewJmeterCsvReader allocate and init Jmeter CSV Reader
+func NewJmeterCsvReader(csvFilename *string) (*JmeterCsvReader, error) {
 	var err error
-	p := new(JmtrCsvReader)
+	p := new(JmeterCsvReader)
 	p.csvFile, err = os.Open(*csvFilename)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func NewJmtrCsvReader(csvFilename *string) (*JmtrCsvReader, error) {
 		p.csvFile.Close()
 		return nil, err
 	}
-	err = jmtrCsvGetHeader(line, &p.Header)
+	err = jmeterCsvGetHeader(line, &p.Header)
 	if err != nil {
 		p.csvFile.Close()
 		return nil, err
@@ -197,29 +197,8 @@ func NewJmtrCsvReader(csvFilename *string) (*JmtrCsvReader, error) {
 	return p, nil
 }
 
-// JMeter stat record
-type JmtrRecord struct {
-	TimeStamp    int64
-	Elapsed      float64
-	Label        string
-	ResponseCode string
-	//ResponseMessage string
-	//ThreadName string
-	//DataType   string
-	Success bool
-	//FailureMessage  string
-	Bytes      int64
-	SentBytes  int64
-	GrpThreads int64
-	AllThreads int64
-	URL        string
-	Latency    float64
-	IdleTime   float64
-	Connect    float64
-}
-
 // Read line from Jmeter CSV file
-func (p *JmtrCsvReader) Read(r *JmtrRecord) error {
+func (p *JmeterCsvReader) Read(r *JmtrRecord) error {
 	line, err := p.csvReader.Read()
 	if err != nil {
 		p.csvFile.Close()
