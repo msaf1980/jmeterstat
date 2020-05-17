@@ -14,6 +14,27 @@ import (
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
 
+func dump(urlStat jmeterstat.JMeterURLStat) {
+	labels := make([]string, 0, len(urlStat))
+	for k := range urlStat {
+		labels = append(labels, k)
+	}
+	sort.Strings(labels)
+	for _, label := range labels {
+		stats := urlStat[label]
+		urls := make([]string, 0, len(stats))
+		for k := range stats {
+			urls = append(urls, k)
+		}
+		for _, url := range urls {
+			s := stats[url]
+			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
+				label, url, s.Elapsed.Count(), s.Elapsed.Max(), s.Elapsed.Min(), s.Elapsed.Mean(),
+				s.Elapsed.Percentile(95), s.Elapsed.Percentile(99))
+		}
+	}
+}
+
 func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule) {
 	csvReader, err := jmeterreader.NewJmeterCsvReader(csvFilename)
 	if err != nil {
@@ -21,7 +42,7 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 	}
 	var jmtrRecord jmeterreader.JmtrRecord
 	urlStat := jmeterstat.JMeterURLStat{}
-	//var allThreads int
+	//allThreads := 0
 
 	for {
 		err = csvReader.Read(&jmtrRecord)
@@ -46,24 +67,8 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 
 		jmeterstat.JMeterURLStatAdd(urlStat, url, &jmtrRecord)
 	}
-	labels := make([]string, 0, len(urlStat))
-	for k := range urlStat {
-		labels = append(labels, k)
-	}
-	sort.Strings(labels)
-	for _, label := range labels {
-		stats := urlStat[label]
-		urls := make([]string, 0, len(stats))
-		for k := range stats {
-			urls = append(urls, k)
-		}
-		for _, url := range urls {
-			s := stats[url]
-			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
-				label, url, s.Elapsed.Count(), s.Elapsed.Max(), s.Elapsed.Min(), s.Elapsed.Mean(),
-				s.Elapsed.Percentile(95), s.Elapsed.Percentile(99))
-		}
-	}
+
+	dump(urlStat)
 }
 
 func main() {

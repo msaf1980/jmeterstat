@@ -20,6 +20,8 @@ func JMeterURLStatAdd(urlStat JMeterURLStat, url string, jmtrRecord *jmeterreade
 		stat.Init(jmtrRecord.TimeStamp)
 		label[url] = stat
 	}
-	stat.Add(jmtrRecord.Elapsed, jmtrRecord.Connect, float64(jmtrRecord.Bytes), float64(jmtrRecord.SentBytes))
+	stat.Add(jmtrRecord.Elapsed, jmtrRecord.Connect,
+		float64(jmtrRecord.Bytes), float64(jmtrRecord.SentBytes),
+		jmtrRecord.Success, jmtrRecord.ResponseCode)
 	//fmt.Printf("%s %.2f\n", url, jmtrRecord.Elapsed)
 }

@@ -14,7 +14,7 @@ type JMeterStat struct {
 	Bytes     statcalc.StatCalculator
 	SentBytes statcalc.StatCalculator
 
-	Success       uint64
+	Success       bool
 	ResponceCodes map[string]uint64
 }
 
@@ -30,9 +30,13 @@ func (s *JMeterStat) Init(started int64) {
 }
 
 // Add stat record to JMeterStat
-func (s *JMeterStat) Add(elapsed float64, connect float64, bytes float64, sentBytes float64) {
+func (s *JMeterStat) Add(elapsed float64, connect float64, bytes float64, sentBytes float64, success bool, responceCode string) {
 	s.Elapsed.AddValue(elapsed)
 	s.Connect.AddValue(connect)
+
 	s.Bytes.AddValue(bytes)
 	s.SentBytes.AddValue(sentBytes)
+
+	s.Success = success
+	s.ResponceCodes[responceCode]++
 }
