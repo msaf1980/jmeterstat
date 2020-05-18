@@ -6,42 +6,64 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"runtime/pprof"
-	"sort"
+	//"sort"
 
+	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
 
-func dump(urlStat jmeterstat.JMeterURLStat) {
-	labels := make([]string, 0, len(urlStat))
-	for k := range urlStat {
-		labels = append(labels, k)
+func dump(urlStat jmeterstat.JMeterLabelURLStat, out *string) {
+	var agg aggstat.LabelURLAggStat
+	agg.Init(urlStat)
+
+	var obytes []byte
+	var ofile *os.File
+	var err error
+	ofile, err = os.OpenFile(path.Join(*out, "aggregate.json"), os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("can't create file in out dir: %s", err.Error())
 	}
-	sort.Strings(labels)
-	for _, label := range labels {
-		stats := urlStat[label]
-		urls := make([]string, 0, len(stats))
-		for k := range stats {
-			urls = append(urls, k)
-		}
-		for _, url := range urls {
-			s := stats[url]
-			fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p95 %.2f, p99 %.2f\n",
-				label, url, s.Elapsed.Count(), s.Elapsed.Max(), s.Elapsed.Min(), s.Elapsed.Mean(),
-				s.Elapsed.Percentile(95), s.Elapsed.Percentile(99))
-		}
+	obytes, err = agg.MarshalJSON()
+	if err != nil {
+		log.Fatalf("can't marshal JSON: %s", err.Error())
 	}
+	_, err = ofile.Write(obytes)
+	if err != nil {
+		log.Fatalf("can't write out file: %s", err.Error())
+	}
+
+	/*
+		labels := make([]string, 0, len(urlStat))
+		for k := range urlStat {
+			labels = append(labels, k)
+		}
+		sort.Strings(labels)
+		for _, label := range labels {
+			stats := agg.Stat[label]
+			urls := make([]string, 0, len(stats))
+			for k := range stats {
+				urls = append(urls, k)
+			}
+			for _, url := range urls {
+				s := stats[url]
+				fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p90 %.2f, p95 %.2f, p99 %.2f\n",
+					label, url, s.Count, s.Elapsed.Max, s.Elapsed.Min, s.Elapsed.Mean,
+					s.Elapsed.P90, s.Elapsed.P95, s.Elapsed.P99)
+			}
+		} */
 }
 
-func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule) {
+func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule, out *string) {
 	csvReader, err := jmeterreader.NewJmeterCsvReader(csvFilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var jmtrRecord jmeterreader.JmtrRecord
-	urlStat := jmeterstat.JMeterURLStat{}
+	urlStat := jmeterstat.JMeterLabelURLStat{}
 	//allThreads := 0
 
 	for {
@@ -68,7 +90,7 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 		jmeterstat.JMeterURLStatAdd(urlStat, url, &jmtrRecord)
 	}
 
-	dump(urlStat)
+	dump(urlStat, out)
 }
 
 func main() {
@@ -77,9 +99,25 @@ func main() {
 	cpuProfile := flag.String("cpuprofile", "", "Write cpu profile to file")
 	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
+	out := flag.String("out", "", "dir for store report")
+
 	flag.Parse()
 	if len(*csvFilename) == 0 {
 		log.Fatal(fmt.Errorf("filename not set"))
+	}
+	if len(*out) == 0 {
+		log.Fatal(fmt.Errorf("out dir not set"))
+	} else {
+		_, err := os.Stat(*out)
+		if err == nil {
+			log.Fatalf("out dir already exist")
+		} else if !os.IsNotExist(err) {
+			log.Fatalf("can't stat out dir: %s", err.Error())
+		}
+		err = os.Mkdir(*out, 0755)
+		if err != nil {
+			log.Fatalf("can't create out dir: %s", err.Error())
+		}
 	}
 
 	if len(*cpuProfile) != 0 {
@@ -99,5 +137,5 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	readCsv(csvFilename, urlTransformRule)
+	readCsv(csvFilename, urlTransformRule, out)
 }

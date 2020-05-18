@@ -32,7 +32,7 @@ type StatCalculator struct {
 }
 
 // Init reset StatCalculator to initial empthy state. Also call for next reuse.
-func (s *StatCalculator) Init() {
+func (s *StatCalculator) Init() *StatCalculator {
 	s.zero = math.NaN()
 
 	s.sum = math.NaN()
@@ -43,10 +43,12 @@ func (s *StatCalculator) Init() {
 	s.count = 0
 
 	s.values = make([]float64, 0, valuesInitSize)
+
+	return s
 }
 
 // InitWithDefaults reset StatCalculator to initial empthy state. But set sum to 0,
-func (s *StatCalculator) InitWithDefaults(zero float64, min float64, max float64) {
+func (s *StatCalculator) InitWithDefaults(zero float64, min float64, max float64) *StatCalculator {
 	s.zero = zero
 
 	s.sum = 0
@@ -57,6 +59,8 @@ func (s *StatCalculator) InitWithDefaults(zero float64, min float64, max float64
 	s.count = 0
 
 	s.values = make([]float64, 0, valuesInitSize)
+
+	return s
 }
 
 // Mean return mean of values
@@ -77,6 +81,11 @@ func (s *StatCalculator) Max() float64 {
 // Sum return sum of values (0, if no values)
 func (s *StatCalculator) Sum() float64 {
 	return s.sum
+}
+
+// Values return values slice
+func (s *StatCalculator) Values() []float64 {
+	return s.values
 }
 
 // Percentile get the value which %percent% of the values are less than. This works
@@ -105,9 +114,10 @@ func (s *StatCalculator) Count() uint64 {
 	return s.count
 }
 
-func (s *StatCalculator) AddAll(o *StatCalculator) {
+// AddAll append stat from other StatCalculator
+func (s *StatCalculator) AddAll(o *StatCalculator) *StatCalculator {
 	if o.Count() == 0 {
-		return
+		return s
 	}
 	if s.count == 0 {
 		s.sum = o.Sum()
@@ -117,10 +127,12 @@ func (s *StatCalculator) AddAll(o *StatCalculator) {
 	s.count += o.Count()
 	s.mergeDerivedValues(o)
 	s.updateValues(o)
+
+	return s
 }
 
 // AddValue add the value
-func (s *StatCalculator) AddValue(value float64) {
+func (s *StatCalculator) AddValue(value float64) *StatCalculator {
 	if s.count == 0 {
 		s.sum = value
 	} else {
@@ -129,6 +141,8 @@ func (s *StatCalculator) AddValue(value float64) {
 	s.count++
 	s.calculateDerivedValues(value)
 	s.updateValue(value)
+
+	return s
 }
 
 func (s *StatCalculator) updateValue(value float64) {
@@ -157,4 +171,55 @@ func (s *StatCalculator) mergeDerivedValues(o *StatCalculator) {
 	if o.Min() < s.min || len(s.values) == 0 {
 		s.min = o.Min()
 	}
+}
+
+func compareWithNaN(s float64, o float64) bool {
+	if math.IsNaN(s) {
+		if !math.IsNaN(o) {
+			return false
+		}
+	} else if s != o {
+		return false
+	}
+	return true
+}
+
+// Equal with other instance
+func (s *StatCalculator) Equal(o *StatCalculator) bool {
+	if s.count != o.count {
+		return false
+	} else {
+		if !compareWithNaN(s.min, o.min) {
+			return false
+		}
+
+		if !compareWithNaN(s.max, o.max) {
+			return false
+		}
+
+		if !compareWithNaN(s.sum, o.sum) {
+			return false
+		}
+
+		if !compareWithNaN(s.mean, o.mean) {
+			return false
+		}
+
+		if s.count == 0 {
+			if !compareWithNaN(s.zero, o.zero) {
+				return false
+			} else {
+				if len(s.values) != len(o.values) {
+					return false
+				}
+				for i := range s.values {
+					if s.values[i] != o.values[i] {
+						return false
+					}
+				}
+			}
+		}
+	}
+
+	return true
 }

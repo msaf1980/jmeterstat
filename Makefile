@@ -19,15 +19,13 @@ debug: FORCE
 
 test: FORCE
 	$(GO) test -coverprofile coverage.txt $(MODULE)/cmd/${NAME}
-	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/jmeterreader
-	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/urltransform
-	GO111MODULE=off $(GO) test -coverprofile coverage.txt $(MODULE)/pkg/statcalc
+	$(GO) test -coverprofile coverage.txt  ./...
 
-vet:
-	${GO} vet $(MODULE)/cmd/${NAME}
-	$(GO) vet $(MODULE)/pkg/jmeterreader
-	$(GO) vet $(MODULE)/pkg/urltransform
-	$(GO) vet $(MODULE)/pkg/statcalc
+prep:
+	GO111MODULE=on go get -u github.com/mailru/easyjson/...@v0.7.1
+
+gen:
+	easyjson -all pkg/aggstat/aggstat.go
 
 lint:
 	golangci-lint run

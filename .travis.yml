@@ -2,8 +2,8 @@ language: go
 
 before_install:
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-  - dep ensure
   - GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.27.0
+  - make prep
 
 script: make all test vet lint
 

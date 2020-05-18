@@ -222,3 +222,130 @@ func TestStatCalculatorWithNonZero(t *testing.T) {
 		}
 	}
 }
+
+func Test_compareWithNaN(t *testing.T) {
+	type args struct {
+		s float64
+		o float64
+	}
+	tests := []struct {
+		name  string
+		args  args
+		equal bool
+	}{
+		{
+			"NaN, NaN",
+			args{math.NaN(), math.NaN()},
+			true,
+		},
+		{
+			"NaN, 0",
+			args{math.NaN(), 0},
+			false,
+		},
+		{
+			"1, NaN",
+			args{1, math.NaN()},
+			false,
+		},
+		{
+			"0, 0",
+			args{0, 0},
+			true,
+		},
+		{
+			"1, 0",
+			args{1, 0},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		if got := compareWithNaN(tt.args.s, tt.args.o); got != tt.equal {
+			t.Errorf("compareWithNaN(%s) = %v, want %v", tt.name, got, tt.equal)
+		}
+	}
+}
+
+func TestStatCalculator_Equal(t *testing.T) {
+	type args struct {
+		s *StatCalculator
+		o *StatCalculator
+	}
+	tests := []struct {
+		name  string
+		args  args
+		equal bool
+	}{
+		{
+			"{}() == {}()",
+			args{
+				new(StatCalculator).Init(),
+				new(StatCalculator).Init(),
+			},
+			true,
+		},
+		{
+			"{}(0.0, 0.0, 0.0) == {}(0.0, 0.0, 0.0)",
+			args{
+				new(StatCalculator).InitWithDefaults(0.0, 0.0, 0.0),
+				new(StatCalculator).InitWithDefaults(0.0, 0.0, 0.0),
+			},
+			true,
+		},
+		{
+			"{}() == {}(0.0, 0.0, 0.0)",
+			args{
+				new(StatCalculator).Init(),
+				new(StatCalculator).InitWithDefaults(0.0, 0.0, 0.0),
+			},
+			false,
+		},
+		{
+			"{}(0.0, 0.0, 0.0) == {}()",
+			args{
+				new(StatCalculator).InitWithDefaults(0.0, 0.0, 0.0),
+				new(StatCalculator).Init(),
+			},
+			false,
+		},
+		{
+			"{1.0} == {1.0}",
+			args{
+				new(StatCalculator).Init().AddValue(1.0),
+				new(StatCalculator).Init().AddValue(1.0),
+			},
+			true,
+		},
+		{
+			"{1.0, 0.1} == {1.0, 0.1}",
+			args{
+				new(StatCalculator).Init().AddValue(1.0).AddValue(0.1),
+				new(StatCalculator).Init().AddValue(1.0).AddValue(0.1),
+			},
+			true,
+		},
+		{
+			"{1.0} == {1.0, 0.1}",
+			args{
+				new(StatCalculator).Init().AddValue(1.0),
+				new(StatCalculator).Init().AddValue(1.0).AddValue(0.1),
+			},
+			false,
+		},
+		{
+			"{1.0, 0.1} == {1.0}",
+			args{
+				new(StatCalculator).Init().AddValue(1.0).AddValue(0.1),
+				new(StatCalculator).Init().AddValue(1.0),
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.args.s.Equal(tt.args.o); got != tt.equal {
+				t.Errorf("(%s) = %v, want %v", tt.name, got, tt.equal)
+			}
+		})
+	}
+}
