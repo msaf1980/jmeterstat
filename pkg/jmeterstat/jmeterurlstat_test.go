@@ -1,10 +1,10 @@
 package jmeterstat
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
+	"github.com/msaf1980/jmeterstat/pkg/statcalc"
 )
 
 func jMeterURLStatEqual(s JMeterURLStat, o JMeterURLStat) bool {
@@ -54,15 +54,19 @@ func TestJMeterURLStatAdd(t *testing.T) {
 		{
 			"1. Add /test1, code 200",
 			jmeterreader.JmtrRecord{
-				1,   //TimeStamp
-				2.0, //Elapsed
-				"test1",
-				"200", true,
-				10, 120,
-				1,
-				2,
-				"/test1",
-				2.0, 0.0, 1.0,
+				TimeStamp:    1,
+				Elapsed:      2.0,
+				Label:        "test1",
+				ResponseCode: "200",
+				Success:      true,
+				Bytes:        10,
+				SentBytes:    120,
+				GrpThreads:   1,
+				AllThreads:   2,
+				URL:          "/test1",
+				Latency:      2.0,
+				IdleTime:     0.0,
+				Connect:      1.0,
 			},
 			JMeterLabelURLStat{
 				"test1": {
@@ -73,15 +77,19 @@ func TestJMeterURLStatAdd(t *testing.T) {
 		{
 			"2. Add /test1, code 500",
 			jmeterreader.JmtrRecord{
-				2,   //TimeStamp
-				2.0, //Elapsed
-				"test1",
-				"500", false,
-				10, 120,
-				1,
-				2,
-				"/test1",
-				2.0, 0.0, 1.0,
+				TimeStamp:    2,
+				Elapsed:      2.0,
+				Label:        "test1",
+				ResponseCode: "500",
+				Success:      false,
+				Bytes:        10,
+				SentBytes:    120,
+				GrpThreads:   1,
+				AllThreads:   2,
+				URL:          "/test1",
+				Latency:      2.0,
+				IdleTime:     0.0,
+				Connect:      1.0,
 			},
 			JMeterLabelURLStat{
 				"test1": {
@@ -93,14 +101,19 @@ func TestJMeterURLStatAdd(t *testing.T) {
 		{
 			"3. Add /test2, code 200",
 			jmeterreader.JmtrRecord{
-				3, 3.0, // Elapsed
-				"test2",
-				"200", true,
-				30, 60,
-				1,
-				2,
-				"/test2",
-				3.0, 0.0, 1.0,
+				TimeStamp:    3,
+				Elapsed:      3.0,
+				Label:        "test2",
+				ResponseCode: "200",
+				Success:      true,
+				Bytes:        30,
+				SentBytes:    60,
+				GrpThreads:   1,
+				AllThreads:   2,
+				URL:          "/test2",
+				Latency:      3.0,
+				IdleTime:     0.0,
+				Connect:      1.0,
 			},
 			JMeterLabelURLStat{
 				"test1": {
@@ -116,28 +129,38 @@ func TestJMeterURLStatAdd(t *testing.T) {
 	for _, tt := range tests {
 		JMeterURLStatAdd(urlStat, tt.input.URL, &tt.input)
 		if !jMeterLabelURLStatEqual(urlStat, tt.result) {
-			t.Errorf("%s failed, want %v, got %v", tt.name, tt.result, urlStat)
+			t.Errorf("%s failed", tt.name)
 		}
 	}
 }
 
 func TestJMeterURLStatSum(t *testing.T) {
-	type args struct {
-		stat  JMeterURLStat
-		clear bool
-	}
 	tests := []struct {
-		name string
-		args args
-		want *JMeterStat
+		name   string
+		input  JMeterURLStat
+		result JMeterStat
 	}{
-		// TODO: Add test cases.
+		{
+			"1. Summ /test1",
+			JMeterURLStat{
+				"/test1": new(JMeterStat).Init().Add(1, 2.0, 1.0, 10.0, 120.0, true, "200").
+					Add(2, 3.0, 1.0, 9.0, 100.0, false, "500"),
+			},
+			JMeterStat{
+				1, 2,
+				*(new(statcalc.StatCalculator).Init().AddValue(2.0).AddValue(3.0)),
+				*(new(statcalc.StatCalculator).Init().AddValue(1.0).AddValue(1.0)),
+				*(new(statcalc.StatCalculator).Init().AddValue(10.0).AddValue(9.0)),
+				*(new(statcalc.StatCalculator).Init().AddValue(120.0).AddValue(100.0)),
+				1,
+				map[string]uint64{"200": 1, "500": 1},
+			},
+		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := JMeterURLStatSum(tt.args.stat, tt.args.clear); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("JMeterURLStatSum() = %v, want %v", got, tt.want)
-			}
-		})
+		got := JMeterURLStatSum(tt.input, false)
+		if !got.Equal(&tt.result) {
+			t.Errorf("%s failed, want %v, got %v", tt.name, tt.result, got)
+		}
 	}
 }
