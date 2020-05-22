@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	//"sort"
 
@@ -16,48 +18,137 @@ import (
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
 
-func dump(urlStat jmeterstat.JMeterLabelURLStat, out *string) {
+func searchHTMLTemplate() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("can't get home dir: %s", err.Error())
+	}
+	_, err = os.Stat(path.Join(home, ".config", "jmeterstat", "template", "report.html"))
+	if err == nil {
+		return path.Join(home, ".config", "jmeterstat"), nil
+	}
+
+	if runtime.GOOS != "windows" {
+		_, err = os.Stat(path.Join("/usr/local/share/jmeterstat", "template", "report.html"))
+		if err == nil {
+			return path.Join("/usr/local/share/jmeterstat", "template"), nil
+		}
+	}
+
+	var dir string
+	dir, err = filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return "", fmt.Errorf("can't get executable basedir: %s", err.Error())
+	}
+
+	_, err = os.Stat(path.Join(dir, "template", "report.html"))
+	if err == nil {
+		return path.Join(dir, "template"), nil
+	}
+
+	_, err = os.Stat(path.Join(".", "template", "report.html"))
+	if err == nil {
+		return path.Join(".", "template"), nil
+	}
+
+	return "", fmt.Errorf("template dir not found")
+}
+
+// Copy the src file to dst. Any existing file will be overwritten and will not
+// copy file attributes.
+func copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+// Copy the src file to dst dir with original filename. Any existing file will be overwritten and will not
+// copy file attributes.
+func copyToDir(src, dstDir string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	filename := filepath.Base(src)
+	out, err := os.OpenFile(path.Join(dstDir, filename), os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func dump(urlStat jmeterstat.JMeterLabelURLStat, out string, htmlOut bool, jsonOut bool, template string) {
 	var agg aggstat.LabelURLAggStat
 	agg.Init(urlStat)
 
 	var obytes []byte
 	var ofile *os.File
 	var err error
-	ofile, err = os.OpenFile(path.Join(*out, "aggregate.json"), os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("can't create file in out dir: %s", err.Error())
-	}
+
 	obytes, err = agg.MarshalJSON()
 	if err != nil {
 		log.Fatalf("can't marshal JSON: %s", err.Error())
 	}
-	_, err = ofile.Write(obytes)
-	if err != nil {
-		log.Fatalf("can't write out file: %s", err.Error())
+
+	if jsonOut {
+		ofile, err = os.OpenFile(path.Join(out, "aggregate.json"), os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("can't create JSON file in out dir: %s", err.Error())
+		}
+		_, err = ofile.Write(obytes)
+		if err != nil {
+			log.Fatalf("can't write JSON file: %s", err.Error())
+		}
 	}
 
-	/*
-		labels := make([]string, 0, len(urlStat))
-		for k := range urlStat {
-			labels = append(labels, k)
+	if htmlOut {
+		ofile, err = os.OpenFile(path.Join(out, "aggregate.js"), os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("can't create aggregate.js in out dir: %s", err.Error())
 		}
-		sort.Strings(labels)
-		for _, label := range labels {
-			stats := agg.Stat[label]
-			urls := make([]string, 0, len(stats))
-			for k := range stats {
-				urls = append(urls, k)
-			}
-			for _, url := range urls {
-				s := stats[url]
-				fmt.Printf("[%s] %s samples %d, max %.2f, min %.2f, mean %.2f, p90 %.2f, p95 %.2f, p99 %.2f\n",
-					label, url, s.Count, s.Elapsed.Max, s.Elapsed.Min, s.Elapsed.Mean,
-					s.Elapsed.P90, s.Elapsed.P95, s.Elapsed.P99)
-			}
-		} */
+		_, err = ofile.WriteString("var data=")
+		if err != nil {
+			log.Fatalf("can't write aggregate.js: %s", err.Error())
+		}
+		_, err = ofile.Write(obytes)
+		if err != nil {
+			log.Fatalf("can't write aggregate.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "report-tables.js"), out) != nil {
+			log.Fatalf("can't write tables.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "report-data.js"), out) != nil {
+			log.Fatalf("can't write report-data.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "report.html"), out) != nil {
+			log.Fatalf("can't write report.html: %s", err.Error())
+		}
+	}
 }
 
-func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule, out *string) {
+func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule) jmeterstat.JMeterLabelURLStat {
 	csvReader, err := jmeterreader.NewJmeterCsvReader(csvFilename)
 	if err != nil {
 		log.Fatal(err)
@@ -90,7 +181,7 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 		jmeterstat.JMeterURLStatAdd(urlStat, url, &jmtrRecord)
 	}
 
-	dump(urlStat, out)
+	return urlStat
 }
 
 func main() {
@@ -101,7 +192,25 @@ func main() {
 
 	out := flag.String("out", "", "dir for store report")
 
+	var template string
+	flag.StringVar(&template, "template", "", "dir for html templates")
+	if len(template) == 0 {
+		var err error
+		template, err = searchHTMLTemplate()
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+	}
+
+	var jsonOut bool
+	var htmlOut bool
+	flag.BoolVar(&jsonOut, "json", false, "save json")
+	flag.BoolVar(&htmlOut, "html", true, "save html report")
+
 	flag.Parse()
+	if !jsonOut && !htmlOut {
+		log.Fatal(fmt.Errorf("output type not set"))
+	}
 	if len(*csvFilename) == 0 {
 		log.Fatal(fmt.Errorf("filename not set"))
 	}
@@ -137,5 +246,6 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	readCsv(csvFilename, urlTransformRule, out)
+	urlStat := readCsv(csvFilename, urlTransformRule)
+	dump(urlStat, *out, htmlOut, jsonOut, template)
 }
