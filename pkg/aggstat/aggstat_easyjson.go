@@ -155,6 +155,8 @@ func easyjsonF1aca853DecodeGithubComMsaf1980JmeterstatPkgAggstat1(in *jlexer.Lex
 			out.Started = int64(in.Int64())
 		case "Ended":
 			out.Ended = int64(in.Int64())
+		case "Name":
+			out.Name = string(in.String())
 		case "Stat":
 			if in.IsNull() {
 				in.Skip()
@@ -202,6 +204,11 @@ func easyjsonF1aca853EncodeGithubComMsaf1980JmeterstatPkgAggstat1(out *jwriter.W
 		const prefix string = ",\"Ended\":"
 		out.RawString(prefix)
 		out.Int64(int64(in.Ended))
+	}
+	{
+		const prefix string = ",\"Name\":"
+		out.RawString(prefix)
+		out.String(string(in.Name))
 	}
 	{
 		const prefix string = ",\"Stat\":"

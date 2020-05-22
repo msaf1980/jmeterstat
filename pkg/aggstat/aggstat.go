@@ -87,13 +87,17 @@ type LabelURLAggStat struct {
 	Started int64
 	Ended   int64
 
+	Name string
+
 	Stat map[string]*URLAggStat
 }
 
 // Init store aggregated statistic from jmeterstat.JMeterLabelURLStat
-func (s *LabelURLAggStat) Init(urlStat jmeterstat.JMeterLabelURLStat) *LabelURLAggStat {
+func (s *LabelURLAggStat) Init(urlStat jmeterstat.JMeterLabelURLStat, name string) *LabelURLAggStat {
 	s.Started = 0
 	s.Ended = 0
+
+	s.Name = name
 
 	s.Stat = map[string]*URLAggStat{}
 	for label, urls := range urlStat {

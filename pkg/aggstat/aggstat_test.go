@@ -29,6 +29,7 @@ func TestLabelURLAggStat(t *testing.T) {
 			LabelURLAggStat{
 				Started: 1589308021000,
 				Ended:   1589308023000,
+				Name:    "test",
 				Stat: map[string]*URLAggStat{
 					"test1": &URLAggStat{
 						Stat: map[string]*AggStat{
@@ -135,7 +136,7 @@ func TestLabelURLAggStat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		var got LabelURLAggStat
-		got.Init(tt.input)
+		got.Init(tt.input, "test")
 		if !reflect.DeepEqual(got, tt.result) {
 			t.Errorf("LabelURLAggStat.Init() = %v, want %v", got, tt.result)
 		}

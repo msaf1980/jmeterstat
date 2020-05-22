@@ -54,28 +54,6 @@ func searchHTMLTemplate() (string, error) {
 	return "", fmt.Errorf("template dir not found")
 }
 
-// Copy the src file to dst. Any existing file will be overwritten and will not
-// copy file attributes.
-func copy(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(out, in)
-	if err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
-}
-
 // Copy the src file to dst dir with original filename. Any existing file will be overwritten and will not
 // copy file attributes.
 func copyToDir(src, dstDir string) error {
@@ -99,9 +77,9 @@ func copyToDir(src, dstDir string) error {
 	return out.Close()
 }
 
-func dump(urlStat jmeterstat.JMeterLabelURLStat, out string, htmlOut bool, jsonOut bool, template string) {
+func dump(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOut bool, jsonOut bool, template string) {
 	var agg aggstat.LabelURLAggStat
-	agg.Init(urlStat)
+	agg.Init(urlStat, name)
 
 	var obytes []byte
 	var ofile *os.File
@@ -190,10 +168,12 @@ func main() {
 	cpuProfile := flag.String("cpuprofile", "", "Write cpu profile to file")
 	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
-	out := flag.String("out", "", "dir for store report")
+	name := flag.String("name", "", "Test name")
+
+	out := flag.String("out", "", "Dir for store report")
 
 	var template string
-	flag.StringVar(&template, "template", "", "dir for html templates")
+	flag.StringVar(&template, "template", "", "Dir for html templates")
 	if len(template) == 0 {
 		var err error
 		template, err = searchHTMLTemplate()
@@ -247,5 +227,5 @@ func main() {
 	}
 
 	urlStat := readCsv(csvFilename, urlTransformRule)
-	dump(urlStat, *out, htmlOut, jsonOut, template)
+	dump(urlStat, *name, *out, htmlOut, jsonOut, template)
 }
