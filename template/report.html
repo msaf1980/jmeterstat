@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedcolumns/3.3.1/js/dataTables.fixedColumns.min.js"></script>
+<title>Benchmark report</title>
+</head>
+<body>
+<script type="text/javascript" charset="utf8" src="aggregate.js"></script>
+<script type="text/javascript" charset="utf8" src="report-data.js"></script>
+<script type="text/javascript" charset="utf8" src="report-tables.js"></script>
+<script>
+	var maxErrors = 5;
+
+	DescriptionTables(data);
+	Tables(data, aggHeads, maxErrors);
+</script>
+</div>
+</body>
+</html>
