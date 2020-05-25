@@ -4,15 +4,15 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kr/pretty"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 )
 
 func TestLabelURLAggStat(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   jmeterstat.JMeterLabelURLStat
-		result  LabelURLAggStat
-		jsonStr string
+		name   string
+		input  jmeterstat.JMeterLabelURLStat
+		result LabelURLAggStat
 	}{
 		{
 			"/test1 + /test2",
@@ -47,8 +47,9 @@ func TestLabelURLAggStat(t *testing.T) {
 								SentBytes: AggStatNode{
 									Min: 120.0, Max: 120.0, Mean: 120.0, P90: 120.0, P95: 120.0, P99: 120.0,
 								},
-								Success:       1,
-								ResponceCodes: map[string]uint64{"200": 1, "500": 1},
+								Success:      1,
+								SuccessCodes: map[string]uint64{"200": 1},
+								ErrorCodes:   map[string]uint64{"500": 1},
 							},
 							"/test11": &AggStat{
 								Started: 1589308023000, Ended: 1589308023000, Count: 1,
@@ -64,8 +65,9 @@ func TestLabelURLAggStat(t *testing.T) {
 								SentBytes: AggStatNode{
 									Min: 120.0, Max: 120.0, Mean: 120.0, P90: 120.0, P95: 120.0, P99: 120.0,
 								},
-								Success:       1,
-								ResponceCodes: map[string]uint64{"200": 1},
+								Success:      1,
+								SuccessCodes: map[string]uint64{"200": 1},
+								ErrorCodes:   map[string]uint64{},
 							},
 						},
 						SumStat: AggStat{
@@ -82,8 +84,9 @@ func TestLabelURLAggStat(t *testing.T) {
 							SentBytes: AggStatNode{
 								Min: 120.0, Max: 120.0, Mean: 120.0, P90: 120.0, P95: 120.0, P99: 120.0,
 							},
-							Success:       2,
-							ResponceCodes: map[string]uint64{"200": 2, "500": 1},
+							Success:      2,
+							SuccessCodes: map[string]uint64{"200": 2},
+							ErrorCodes:   map[string]uint64{"500": 1},
 						},
 					},
 					/*
@@ -107,8 +110,9 @@ func TestLabelURLAggStat(t *testing.T) {
 								SentBytes: AggStatNode{
 									Min: 120.0, Max: 120.0, Mean: 120.0, P90: 120.0, P95: 120.0, P99: 120.0,
 								},
-								Success:       1,
-								ResponceCodes: map[string]uint64{"200": 1},
+								Success:      1,
+								SuccessCodes: map[string]uint64{"200": 1},
+								ErrorCodes:   map[string]uint64{},
 							},
 						},
 						SumStat: AggStat{
@@ -125,20 +129,20 @@ func TestLabelURLAggStat(t *testing.T) {
 							SentBytes: AggStatNode{
 								Min: 120.0, Max: 120.0, Mean: 120.0, P90: 120.0, P95: 120.0, P99: 120.0,
 							},
-							Success:       1,
-							ResponceCodes: map[string]uint64{"200": 1},
+							Success:      1,
+							SuccessCodes: map[string]uint64{"200": 1},
+							ErrorCodes:   map[string]uint64{},
 						},
 					},
 				},
 			},
-			"{\"Started\":1589308021000,\"Ended\":1589308023000,\"Stat\":{\"test1\":{\"Stat\":{\"/test1\":{\"Started\":1589308021000,\"Ended\":1589308022000,\"Count\":2,\"Elapsed\":{\"Min\":2,\"Max\":2,\"Mean\":2,\"P90\":2,\"P95\":2,\"P99\":2},\"Connect\":{\"Min\":1,\"Max\":1,\"Mean\":1,\"P90\":1,\"P95\":1,\"P99\":1},\"Bytes\":{\"Min\":10,\"Max\":10,\"Mean\":10,\"P90\":10,\"P95\":10,\"P99\":10},\"SentBytes\":{\"Min\":120,\"Max\":120,\"Mean\":120,\"P90\":120,\"P95\":120,\"P99\":120},\"Success\":1,\"ResponceCodes\":{\"200\":1,\"500\":1}},\"/test11\":{\"Started\":1589308023000,\"Ended\":1589308023000,\"Count\":1,\"Elapsed\":{\"Min\":2,\"Max\":2,\"Mean\":2,\"P90\":2,\"P95\":2,\"P99\":2},\"Connect\":{\"Min\":1,\"Max\":1,\"Mean\":1,\"P90\":1,\"P95\":1,\"P99\":1},\"Bytes\":{\"Min\":10,\"Max\":10,\"Mean\":10,\"P90\":10,\"P95\":10,\"P99\":10},\"SentBytes\":{\"Min\":120,\"Max\":120,\"Mean\":120,\"P90\":120,\"P95\":120,\"P99\":120},\"Success\":1,\"ResponceCodes\":{\"200\":1}}},\"SumStat\":{\"Started\":1589308021000,\"Ended\":1589308023000,\"Count\":3,\"Elapsed\":{\"Min\":2,\"Max\":2,\"Mean\":2,\"P90\":2,\"P95\":2,\"P99\":2},\"Connect\":{\"Min\":1,\"Max\":1,\"Mean\":1,\"P90\":1,\"P95\":1,\"P99\":1},\"Bytes\":{\"Min\":10,\"Max\":10,\"Mean\":10,\"P90\":10,\"P95\":10,\"P99\":10},\"SentBytes\":{\"Min\":120,\"Max\":120,\"Mean\":120,\"P90\":120,\"P95\":120,\"P99\":120},\"Success\":2,\"ResponceCodes\":{\"200\":2,\"500\":1}}},\"test2\":{\"Stat\":{\"/test2\":{\"Started\":1589308023000,\"Ended\":1589308023000,\"Count\":1,\"Elapsed\":{\"Min\":2,\"Max\":2,\"Mean\":2,\"P90\":2,\"P95\":2,\"P99\":2},\"Connect\":{\"Min\":1,\"Max\":1,\"Mean\":1,\"P90\":1,\"P95\":1,\"P99\":1},\"Bytes\":{\"Min\":10,\"Max\":10,\"Mean\":10,\"P90\":10,\"P95\":10,\"P99\":10},\"SentBytes\":{\"Min\":120,\"Max\":120,\"Mean\":120,\"P90\":120,\"P95\":120,\"P99\":120},\"Success\":1,\"ResponceCodes\":{\"200\":1}}},\"SumStat\":{\"Started\":1589308023000,\"Ended\":1589308023000,\"Count\":1,\"Elapsed\":{\"Min\":2,\"Max\":2,\"Mean\":2,\"P90\":2,\"P95\":2,\"P99\":2},\"Connect\":{\"Min\":1,\"Max\":1,\"Mean\":1,\"P90\":1,\"P95\":1,\"P99\":1},\"Bytes\":{\"Min\":10,\"Max\":10,\"Mean\":10,\"P90\":10,\"P95\":10,\"P99\":10},\"SentBytes\":{\"Min\":120,\"Max\":120,\"Mean\":120,\"P90\":120,\"P95\":120,\"P99\":120},\"Success\":1,\"ResponceCodes\":{\"200\":1}}}}}",
 		},
 	}
 	for _, tt := range tests {
 		var got LabelURLAggStat
 		got.Init(tt.input, "test")
 		if !reflect.DeepEqual(got, tt.result) {
-			t.Errorf("LabelURLAggStat.Init() = %v, want %v", got, tt.result)
+			t.Errorf("LabelURLAggStat.Init() =\n%# v\n, want\n%# v\n, diff\n%v", pretty.Formatter(got), pretty.Formatter(tt.result), pretty.Diff(tt.result, got))
 		}
 
 		// Test JSON Marshal/UnMarshal
@@ -152,7 +156,7 @@ func TestLabelURLAggStat(t *testing.T) {
 			t.Errorf("LabelURLAggStat.UnMarshalJSON() err: %s", err.Error())
 		}
 		if !reflect.DeepEqual(restore, tt.result) {
-			t.Errorf("LabelURLAggStat.UnMarshalJSON() = %v, want %v", got, tt.result)
+			t.Errorf("LabelURLAggStat..UnMarshalJSON() =\n%# v\n, want\n%# v\n, diff\n%v", pretty.Formatter(restore), pretty.Formatter(tt.result), pretty.Diff(tt.result, restore))
 		}
 	}
 }

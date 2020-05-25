@@ -47,8 +47,11 @@ func JMeterURLStatSum(stat JMeterURLStat, clear bool) *JMeterStat {
 		sum.SentBytes.AddAll(&v.SentBytes)
 
 		sum.Success += v.Success
-		for k := range v.ResponceCodes {
-			sum.ResponceCodes[k] += v.ResponceCodes[k]
+		for k := range v.ErrorCodes {
+			sum.ErrorCodes[k] += v.ErrorCodes[k]
+		}
+		for k := range v.SuccessCodes {
+			sum.SuccessCodes[k] += v.SuccessCodes[k]
 		}
 
 		if clear {

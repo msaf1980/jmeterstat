@@ -153,7 +153,8 @@ func TestJMeterURLStatSum(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(10.0).AddValue(9.0)),
 				*(new(statcalc.StatCalculator).Init().AddValue(120.0).AddValue(100.0)),
 				1,
-				map[string]uint64{"200": 1, "500": 1},
+				map[string]uint64{"200": 1},
+				map[string]uint64{"500": 1},
 			},
 		},
 	}

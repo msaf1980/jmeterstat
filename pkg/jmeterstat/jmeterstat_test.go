@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/msaf1980/jmeterstat/pkg/statcalc"
-	//"github.com/stretchr/testify/assert"
 )
 
 func TestJMeterStat(t *testing.T) {
@@ -25,7 +24,7 @@ func TestJMeterStat(t *testing.T) {
 		equal  bool
 	}{
 		{
-			"1. JMeterStat.Add(10, 10.0, 1.0, 11.0, 120.0, true, '200'",
+			"1. JMeterStat.Add(10, 10.0, 1.0, 11.0, 120.0, true, '200')",
 			false,
 			args{10, 10.0, 1.0, 11.0, 120.0, true, "200"},
 			JMeterStat{
@@ -36,11 +35,12 @@ func TestJMeterStat(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(120.0)),
 				1,
 				map[string]uint64{"200": 1},
+				map[string]uint64{},
 			},
 			true,
 		},
 		{
-			"2. JMeterStat.Add(11, 10.0, 1.0, 11.0, 120.0, true, '200'",
+			"2. JMeterStat.Add(11, 10.0, 1.0, 11.0, 120.0, true, '200')",
 			false,
 			args{11, 10.0, 1.0, 11.0, 120.0, true, "200"},
 			JMeterStat{
@@ -51,11 +51,12 @@ func TestJMeterStat(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(120.0).AddValue(120.0)),
 				2,
 				map[string]uint64{"200": 2},
+				map[string]uint64{},
 			},
 			true,
 		},
 		{
-			"3. JMeterStat.Add(12, 10.0, 1.0, 11.0, 120.0, false, '500'",
+			"3. JMeterStat.Add(12, 10.0, 1.0, 11.0, 120.0, false, '500')",
 			false,
 			args{12, 10.0, 1.0, 11.0, 120.0, false, "500"},
 			JMeterStat{
@@ -65,12 +66,13 @@ func TestJMeterStat(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(11.0).AddValue(11.0).AddValue(11.0)),
 				*(new(statcalc.StatCalculator).Init().AddValue(120.0).AddValue(120.0).AddValue(120.0)),
 				2,
-				map[string]uint64{"200": 2, "500": 1},
+				map[string]uint64{"200": 2},
+				map[string]uint64{"500": 1},
 			},
 			true,
 		},
 		{
-			"JMeterStat.Init().Add(10, 10, 1, 5.0, 12.0, false, '500'",
+			"JMeterStat.Init().Add(10, 10, 1, 5.0, 12.0, false, '500')",
 			true,
 			args{10, 10.0, 1.0, 5.0, 12.0, false, "500"},
 			JMeterStat{
@@ -80,12 +82,13 @@ func TestJMeterStat(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(11.0)),
 				*(new(statcalc.StatCalculator).Init().AddValue(120.0)),
 				0,
+				map[string]uint64{},
 				map[string]uint64{"500": 1},
 			},
 			false,
 		},
 		{
-			"JMeterStat.Init().Add(12, 10, 1, 5.0, 12.0, false, '500'",
+			"JMeterStat.Init().Add(12, 10, 1, 5.0, 12.0, false, '500')",
 			true,
 			args{12, 10.0, 1.0, 5.0, 12.0, false, "500"},
 			JMeterStat{
@@ -95,6 +98,7 @@ func TestJMeterStat(t *testing.T) {
 				*(new(statcalc.StatCalculator).Init().AddValue(5.0)),
 				*(new(statcalc.StatCalculator).Init().AddValue(12.0)),
 				0,
+				map[string]uint64{},
 				map[string]uint64{"500": 1},
 			},
 			true,
@@ -112,7 +116,7 @@ func TestJMeterStat(t *testing.T) {
 			tt.args.success, tt.args.responceCode)
 		got := stat.Equal(&tt.result)
 		if got != tt.equal {
-			t.Errorf("compare with %s got %v, want %v", tt.name, got, tt.equal)
+			t.Errorf("%s = %v, want %v", tt.name, got, tt.equal)
 		}
 	}
 }

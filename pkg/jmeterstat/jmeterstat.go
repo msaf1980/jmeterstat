@@ -14,8 +14,9 @@ type JMeterStat struct {
 	Bytes     statcalc.StatCalculator
 	SentBytes statcalc.StatCalculator
 
-	Success       uint64
-	ResponceCodes map[string]uint64
+	Success      uint64
+	SuccessCodes map[string]uint64
+	ErrorCodes   map[string]uint64
 }
 
 // Init reset JMeterStat to initial empthy state. Also call for next reuse.
@@ -29,7 +30,8 @@ func (s *JMeterStat) Init() *JMeterStat {
 	s.SentBytes.Init()
 
 	s.Success = 0
-	s.ResponceCodes = map[string]uint64{}
+	s.SuccessCodes = map[string]uint64{}
+	s.ErrorCodes = map[string]uint64{}
 
 	return s
 }
@@ -54,8 +56,10 @@ func (s *JMeterStat) Add(timeStamp int64, elapsed float64, connect float64,
 
 	if success {
 		s.Success++
+		s.SuccessCodes[responceCode]++
+	} else {
+		s.ErrorCodes[responceCode]++
 	}
-	s.ResponceCodes[responceCode]++
 
 	return s
 }
@@ -76,14 +80,20 @@ func (s *JMeterStat) Equal(o *JMeterStat) bool {
 		return false
 	} else if !s.SentBytes.Equal(&o.SentBytes) {
 		return false
-	} else if len(s.ResponceCodes) != len(o.ResponceCodes) {
+	} else if len(s.ErrorCodes) != len(o.ErrorCodes) {
 		return false
 	} else {
-		if len(s.ResponceCodes) == 0 {
+		if len(s.ErrorCodes) == 0 {
 			return true
 		}
-		for k, v := range s.ResponceCodes {
-			vo, ok := o.ResponceCodes[k]
+		for k, v := range s.ErrorCodes {
+			vo, ok := o.ErrorCodes[k]
+			if !ok || v != vo {
+				return false
+			}
+		}
+		for k, v := range s.SuccessCodes {
+			vo, ok := o.SuccessCodes[k]
 			if !ok || v != vo {
 				return false
 			}

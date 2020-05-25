@@ -29,8 +29,9 @@ type AggStat struct {
 	Bytes     AggStatNode
 	SentBytes AggStatNode
 
-	Success       uint64
-	ResponceCodes map[string]uint64
+	Success      uint64
+	SuccessCodes map[string]uint64
+	ErrorCodes   map[string]uint64
 }
 
 // Init for aggregates stat
@@ -69,7 +70,8 @@ func (agg *AggStat) Init(stat *jmeterstat.JMeterStat) *AggStat {
 	agg.SentBytes.P99 = stat.SentBytes.Percentile(99.0)
 
 	agg.Success = stat.Success
-	agg.ResponceCodes = stat.ResponceCodes
+	agg.SuccessCodes = stat.SuccessCodes
+	agg.ErrorCodes = stat.ErrorCodes
 
 	return agg
 }

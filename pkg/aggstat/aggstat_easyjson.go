@@ -397,18 +397,34 @@ func easyjsonF1aca853DecodeGithubComMsaf1980JmeterstatPkgAggstat3(in *jlexer.Lex
 			(out.SentBytes).UnmarshalEasyJSON(in)
 		case "Success":
 			out.Success = uint64(in.Uint64())
-		case "ResponceCodes":
+		case "SuccessCodes":
 			if in.IsNull() {
 				in.Skip()
 			} else {
 				in.Delim('{')
-				out.ResponceCodes = make(map[string]uint64)
+				out.SuccessCodes = make(map[string]uint64)
 				for !in.IsDelim('}') {
 					key := string(in.String())
 					in.WantColon()
 					var v5 uint64
 					v5 = uint64(in.Uint64())
-					(out.ResponceCodes)[key] = v5
+					(out.SuccessCodes)[key] = v5
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
+		case "ErrorCodes":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				out.ErrorCodes = make(map[string]uint64)
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v6 uint64
+					v6 = uint64(in.Uint64())
+					(out.ErrorCodes)[key] = v6
 					in.WantComma()
 				}
 				in.Delim('}')
@@ -468,22 +484,43 @@ func easyjsonF1aca853EncodeGithubComMsaf1980JmeterstatPkgAggstat3(out *jwriter.W
 		out.Uint64(uint64(in.Success))
 	}
 	{
-		const prefix string = ",\"ResponceCodes\":"
+		const prefix string = ",\"SuccessCodes\":"
 		out.RawString(prefix)
-		if in.ResponceCodes == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+		if in.SuccessCodes == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
 			out.RawString(`null`)
 		} else {
 			out.RawByte('{')
-			v6First := true
-			for v6Name, v6Value := range in.ResponceCodes {
-				if v6First {
-					v6First = false
+			v7First := true
+			for v7Name, v7Value := range in.SuccessCodes {
+				if v7First {
+					v7First = false
 				} else {
 					out.RawByte(',')
 				}
-				out.String(string(v6Name))
+				out.String(string(v7Name))
 				out.RawByte(':')
-				out.Uint64(uint64(v6Value))
+				out.Uint64(uint64(v7Value))
+			}
+			out.RawByte('}')
+		}
+	}
+	{
+		const prefix string = ",\"ErrorCodes\":"
+		out.RawString(prefix)
+		if in.ErrorCodes == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+			out.RawString(`null`)
+		} else {
+			out.RawByte('{')
+			v8First := true
+			for v8Name, v8Value := range in.ErrorCodes {
+				if v8First {
+					v8First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v8Name))
+				out.RawByte(':')
+				out.Uint64(uint64(v8Value))
 			}
 			out.RawByte('}')
 		}
