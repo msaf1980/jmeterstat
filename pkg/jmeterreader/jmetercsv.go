@@ -186,11 +186,15 @@ type JmeterCsvReader struct {
 func NewJmeterCsvReader(csvFilename *string) (*JmeterCsvReader, error) {
 	var err error
 	p := new(JmeterCsvReader)
-	p.csvFile, err = os.Open(*csvFilename)
-	if err != nil {
-		return nil, err
+	if *csvFilename == "-" {
+		p.csvReader = csv.NewReader(bufio.NewReader(os.Stdin))
+	} else {
+		p.csvFile, err = os.Open(*csvFilename)
+		if err != nil {
+			return nil, err
+		}
+		p.csvReader = csv.NewReader(bufio.NewReader(p.csvFile))
 	}
-	p.csvReader = csv.NewReader(bufio.NewReader(p.csvFile))
 	p.csvReader.ReuseRecord = true
 	line, err := p.csvReader.Read()
 	if err != nil {

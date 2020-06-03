@@ -295,7 +295,7 @@ func main() {
 
 	var action action
 
-	csvFilename := flag.String("csvfile", "", "JMeter results (CSV format)")
+	csvFilename := flag.String("csvfile", "", "JMeter results (CSV format) (use '-' for stdin)")
 	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
 	cmpReport := flag.String("cmp", "", "jmeter report for compare")
