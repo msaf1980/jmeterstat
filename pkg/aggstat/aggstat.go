@@ -1,6 +1,8 @@
 package aggstat
 
 import (
+	"math"
+
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 )
 
@@ -14,6 +16,17 @@ type AggStatNode struct {
 	P90  float64
 	P95  float64
 	P99  float64
+}
+
+// NaN set AggStatNode fields to NaN
+func (s *AggStatNode) NaN() {
+	s.Min = math.NaN()
+	s.Max = math.NaN()
+
+	s.Mean = math.NaN()
+	s.P90 = math.NaN()
+	s.P95 = math.NaN()
+	s.P99 = math.NaN()
 }
 
 // AggStat for aggregates stat

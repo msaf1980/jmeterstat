@@ -8,14 +8,14 @@
 <title>Benchmark report</title>
 </head>
 <body>
-<script type="text/javascript" charset="utf8" src="report.js"></script>
-<script type="text/javascript" charset="utf8" src="report-data.js"></script>
-<script type="text/javascript" charset="utf8" src="report-tables.js"></script>
+<script type="text/javascript" charset="utf8" src="compare.js"></script>
+<script type="text/javascript" charset="utf8" src="compare-data.js"></script>
+<script type="text/javascript" charset="utf8" src="compare-tables.js"></script>
 <script>
 	var maxErrors = 5;
 
-	DescriptionTables(data);
-	Tables(data, aggHeads, maxErrors);
+	CmpDescriptionTables(data);
+	CmpQueriesTables(data, aggHeads, maxErrors);
 </script>
 </div>
 </body>

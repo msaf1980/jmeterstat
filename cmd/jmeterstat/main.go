@@ -1,18 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
-	//"sort"
+	"strings"
 
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
+	"github.com/msaf1980/jmeterstat/pkg/aggstatcmp"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
@@ -77,7 +80,7 @@ func copyToDir(src, dstDir string) error {
 	return out.Close()
 }
 
-func dump(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOut bool, jsonOut bool, template string) {
+func dumpAggStat(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOut bool, jsonOut bool, template string) {
 	var agg aggstat.LabelURLAggStat
 	agg.Init(urlStat, name)
 
@@ -91,7 +94,7 @@ func dump(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOu
 	}
 
 	if jsonOut {
-		ofile, err = os.OpenFile(path.Join(out, "aggregate.json"), os.O_RDWR|os.O_CREATE, 0644)
+		ofile, err = os.OpenFile(path.Join(out, "report.json"), os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("can't create JSON file in out dir: %s", err.Error())
 		}
@@ -102,20 +105,20 @@ func dump(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOu
 	}
 
 	if htmlOut {
-		ofile, err = os.OpenFile(path.Join(out, "aggregate.js"), os.O_RDWR|os.O_CREATE, 0644)
+		ofile, err = os.OpenFile(path.Join(out, "report.js"), os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
-			log.Fatalf("can't create aggregate.js in out dir: %s", err.Error())
+			log.Fatalf("can't create report.js in out dir: %s", err.Error())
 		}
 		_, err = ofile.WriteString("var data=")
 		if err != nil {
-			log.Fatalf("can't write aggregate.js: %s", err.Error())
+			log.Fatalf("can't write report.js: %s", err.Error())
 		}
 		_, err = ofile.Write(obytes)
 		if err != nil {
-			log.Fatalf("can't write aggregate.js: %s", err.Error())
+			log.Fatalf("can't write report.js: %s", err.Error())
 		}
 		if copyToDir(path.Join(template, "report-tables.js"), out) != nil {
-			log.Fatalf("can't write tables.js: %s", err.Error())
+			log.Fatalf("can't write report-tables.js: %s", err.Error())
 		}
 		if copyToDir(path.Join(template, "report-data.js"), out) != nil {
 			log.Fatalf("can't write report-data.js: %s", err.Error())
@@ -124,6 +127,54 @@ func dump(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOu
 			log.Fatalf("can't write report.html: %s", err.Error())
 		}
 	}
+}
+
+func readAggStat(filename string) (*aggstat.LabelURLAggStat, error) {
+	agg := new(aggstat.LabelURLAggStat)
+
+	var ibytes []byte
+	var ifile *os.File
+	var err error
+
+	jsonIn := false
+
+	/*
+		obytes, err = agg.MarshalJSON()
+		if err != nil {
+			log.Fatalf("can't marshal JSON: %s", err.Error())
+		}
+	*/
+	if strings.HasSuffix(filename, ".json") {
+		jsonIn = true
+	} else if !strings.HasSuffix(filename, ".js") {
+		return nil, fmt.Errorf("unknown file type: %s", filename)
+	}
+
+	ifile, err = os.Open(filename)
+	if err != nil {
+		log.Fatalf("can't open file %s: %s", filename, err.Error())
+	}
+	ibytes, err = ioutil.ReadAll(ifile)
+	if err != nil {
+		log.Fatalf("can't write JSON file: %s", err.Error())
+	}
+
+	if jsonIn {
+		err = agg.UnmarshalJSON(ibytes)
+		if err != nil {
+			return nil, fmt.Errorf("can't unmarshall file %s: %s", filename, err.Error())
+		}
+	} else {
+		prefix := []byte("var data=")
+		if bytes.HasPrefix(ibytes, prefix) {
+			err = agg.UnmarshalJSON(ibytes[9:])
+			if err != nil {
+				return nil, fmt.Errorf("can't unmarshall file %s: %s", filename, err.Error())
+			}
+		}
+	}
+
+	return agg, nil
 }
 
 func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule) jmeterstat.JMeterLabelURLStat {
@@ -162,11 +213,66 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 	return urlStat
 }
 
-func main() {
-	csvFilename := flag.String("file", "", "JMeter results (CSV format)")
+func dumpDiffAggStat(agg *aggstat.LabelURLAggStat, cmpAgg *aggstat.LabelURLAggStat, out string, htmlOut bool, jsonOut bool, template string) {
+	var diffAgg aggstatcmp.LabelURLAggDiffStat
+	diffAgg.DiffPcnt(agg, cmpAgg)
 
+	obytes, err := diffAgg.MarshalJSON()
+	if err != nil {
+		log.Fatalf("can't marshal JSON: %s", err.Error())
+	}
+
+	var ofile *os.File
+
+	if jsonOut {
+		ofile, err = os.OpenFile(path.Join(out, "compare.json"), os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("can't create JSON file in out dir: %s", err.Error())
+		}
+		_, err = ofile.Write(obytes)
+		if err != nil {
+			log.Fatalf("can't write JSON file: %s", err.Error())
+		}
+	}
+
+	if htmlOut {
+		ofile, err = os.OpenFile(path.Join(out, "compare.js"), os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("can't create compare.js in out dir: %s", err.Error())
+		}
+		_, err = ofile.WriteString("var data=")
+		if err != nil {
+			log.Fatalf("can't write compare.js: %s", err.Error())
+		}
+		_, err = ofile.Write(obytes)
+		if err != nil {
+			log.Fatalf("can't write compare.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "compare-tables.js"), out) != nil {
+			log.Fatalf("can't write compare-tables.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "compare-data.js"), out) != nil {
+			log.Fatalf("can't write compare-data.js: %s", err.Error())
+		}
+		if copyToDir(path.Join(template, "compare.html"), out) != nil {
+			log.Fatalf("can't write compare.html: %s", err.Error())
+		}
+	}
+}
+
+type action int
+
+const (
+	// NONE undefined
+	NONE action = iota
+	// CSVREPORT generate report from csv
+	CSVREPORT
+	// COMPARE compare two reports
+	COMPARE
+)
+
+func main() {
 	cpuProfile := flag.String("cpuprofile", "", "Write cpu profile to file")
-	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
 	name := flag.String("name", "", "Test name")
 
@@ -187,13 +293,42 @@ func main() {
 	flag.BoolVar(&jsonOut, "json", false, "save json")
 	flag.BoolVar(&htmlOut, "html", true, "save html report")
 
+	var action action
+
+	csvFilename := flag.String("csvfile", "", "JMeter results (CSV format)")
+	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
+
+	cmpReport := flag.String("cmp", "", "jmeter report for compare")
+	report := flag.String("report", "", "jmeter report")
+
 	flag.Parse()
 	if !jsonOut && !htmlOut {
 		log.Fatal(fmt.Errorf("output type not set"))
 	}
-	if len(*csvFilename) == 0 {
-		log.Fatal(fmt.Errorf("filename not set"))
+
+	if len(*csvFilename) > 0 {
+		if len(*report) > 0 || len(*cmpReport) > 0 {
+			log.Fatal(fmt.Errorf("set compare report in generate step"))
+		}
+		action = CSVREPORT
 	}
+	if len(*report) > 0 {
+		if action != NONE {
+			log.Fatal(fmt.Errorf("can't run several actions in one step"))
+		}
+		if len(*urlTransform) > 0 {
+			log.Fatal(fmt.Errorf("unsupported option urltransform for compare"))
+		}
+		if len(*cmpReport) == 0 {
+			log.Fatal(fmt.Errorf("compare report not set"))
+		}
+		action = COMPARE
+	}
+
+	if action == NONE {
+		log.Fatal(fmt.Errorf("input type not set"))
+	}
+
 	if len(*out) == 0 {
 		log.Fatal(fmt.Errorf("out dir not set"))
 	} else {
@@ -221,11 +356,27 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	urlTransformRule, err := urltransform.NewURLTransformRule(*urlTransform)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	switch action {
+	case CSVREPORT:
+		urlTransformRule, err := urltransform.NewURLTransformRule(*urlTransform)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		urlStat := readCsv(csvFilename, urlTransformRule)
+		dumpAggStat(urlStat, *name, *out, htmlOut, jsonOut, template)
 
-	urlStat := readCsv(csvFilename, urlTransformRule)
-	dump(urlStat, *name, *out, htmlOut, jsonOut, template)
+	case COMPARE:
+		agg, err := readAggStat(*report)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		cmpAgg, err := readAggStat(*cmpReport)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		dumpDiffAggStat(agg, cmpAgg, *out, htmlOut, jsonOut, template)
+
+	default:
+		log.Fatalf("unknown action: %d", action)
+	}
 }

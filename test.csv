@@ -1,0 +1,6 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1589308020856,2,HTTP Request (1 Hour),200,OK,Thread Group (1 Hour) 2-10,,true,,75,249,10,16,http://127.0.0.1:9090/render/?format=protobuf&target=requests.all.bytes.upper&from=1589152264&until=1589155864,2,0,0
+1589308020920,2,HTTP Request (1 Hour),200,OK,Thread Group (1 Hour) 2-3,,true,,75,249,10,16,http://127.0.0.1:9090/render/?format=protobuf&target=requests.all.bytes.upper&from=1589182731&until=1589186331,2,0,0
+1589308020962,2,HTTP Request (1 Hour),200,OK,Thread Group (1 Hour) 2-2,,true,,75,249,10,16,http://127.0.0.1:9090/render/?format=protobuf&target=requests.all.bytes.upper&from=1589222606&until=1589226206,2,0,0
+1589308022621,6,HTTP Request (1 Day),200,OK,Thread Group (1 Day) 3-2,,true,,75,249,2,16,http://127.0.0.1:9090/render/?format=protobuf&target=requests.all.bytes.upper&from=1589109556&until=1589195956,6,0,0
+1589308022724,23,HTTP Request (1 Week),200,OK,Thread Group (1 Week) 4-1,text,true,,90951,249,2,16,http://127.0.0.1:9090/render/?format=protobuf&target=requests.all.bytes.upper&from=1588576577&until=1589181377,22,0,0

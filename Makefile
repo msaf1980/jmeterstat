@@ -26,6 +26,7 @@ prep:
 
 gen:
 	easyjson -all pkg/aggstat/aggstat.go
+	easyjson -all pkg/aggstatcmp/aggstatcmp.go
 
 lint:
 	golangci-lint run
