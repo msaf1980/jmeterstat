@@ -6,7 +6,15 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
+
+func stripResponseCode(code string) string {
+	if strings.HasPrefix(code, "Non HTTP response code: ") {
+		return code[24:]
+	}
+	return code
+}
 
 // JmeterCsvHeader - JMeter CSV fileds index numbers
 type JmeterCsvHeader struct {
@@ -215,7 +223,7 @@ func (p *JmeterCsvReader) Read(r *JmtrRecord) error {
 		return err
 	}
 	r.Label = line[p.Header.Label]
-	r.ResponseCode = line[p.Header.ResponseCode]
+	r.ResponseCode = stripResponseCode(line[p.Header.ResponseCode])
 	//ResponseMessage
 	//ThreadName
 	//DataType
