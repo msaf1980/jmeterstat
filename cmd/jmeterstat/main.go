@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 
@@ -20,42 +19,6 @@ import (
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
 )
-
-func searchHTMLTemplate() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("can't get home dir: %s", err.Error())
-	}
-	_, err = os.Stat(path.Join(home, ".config", "jmeterstat", "template", "report.html"))
-	if err == nil {
-		return path.Join(home, ".config", "jmeterstat"), nil
-	}
-
-	if runtime.GOOS != "windows" {
-		_, err = os.Stat(path.Join("/usr/local/share/jmeterstat", "template", "report.html"))
-		if err == nil {
-			return path.Join("/usr/local/share/jmeterstat", "template"), nil
-		}
-	}
-
-	var dir string
-	dir, err = filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		return "", fmt.Errorf("can't get executable basedir: %s", err.Error())
-	}
-
-	_, err = os.Stat(path.Join(dir, "template", "report.html"))
-	if err == nil {
-		return path.Join(dir, "template"), nil
-	}
-
-	_, err = os.Stat(path.Join(".", "template", "report.html"))
-	if err == nil {
-		return path.Join(".", "template"), nil
-	}
-
-	return "", fmt.Errorf("template dir not found")
-}
 
 // Copy the src file to dst dir with original filename. Any existing file will be overwritten and will not
 // copy file attributes.
@@ -105,6 +68,36 @@ func dumpAggStat(urlStat jmeterstat.JMeterLabelURLStat, name string, out string,
 	}
 
 	if htmlOut {
+		var files = []string{"report-tables.js", "report-data.js", "report.html"}
+		if len(template) == 0 {
+			eTemplate := "template/"
+			for i := range files {
+				source := eTemplate + files[i]
+				data, err := Asset(source)
+				if err != nil {
+					log.Fatalf("can't read embedded %s: %s", source, err.Error())
+				}
+				ofile, err = os.OpenFile(path.Join(out, files[i]), os.O_RDWR|os.O_CREATE, 0644)
+				if err != nil {
+					log.Fatalf("can't create %s in out dir: %s", files[i], err.Error())
+				}
+				_, err = ofile.Write(data)
+				if err != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+				err = ofile.Close()
+				if err != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+			}
+		} else {
+			for i := range files {
+				if copyToDir(path.Join(template, files[i]), out) != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+			}
+		}
+
 		ofile, err = os.OpenFile(path.Join(out, "report.js"), os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("can't create report.js in out dir: %s", err.Error())
@@ -116,15 +109,6 @@ func dumpAggStat(urlStat jmeterstat.JMeterLabelURLStat, name string, out string,
 		_, err = ofile.Write(obytes)
 		if err != nil {
 			log.Fatalf("can't write report.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "report-tables.js"), out) != nil {
-			log.Fatalf("can't write report-tables.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "report-data.js"), out) != nil {
-			log.Fatalf("can't write report-data.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "report.html"), out) != nil {
-			log.Fatalf("can't write report.html: %s", err.Error())
 		}
 	}
 }
@@ -236,6 +220,36 @@ func dumpDiffAggStat(agg *aggstat.LabelURLAggStat, cmpAgg *aggstat.LabelURLAggSt
 	}
 
 	if htmlOut {
+		var files = []string{"compare-tables.js", "compare-data.js", "compare.html"}
+		if len(template) == 0 {
+			eTemplate := "template/"
+			for i := range files {
+				source := eTemplate + files[i]
+				data, err := Asset(source)
+				if err != nil {
+					log.Fatalf("can't read embedded %s: %s", source, err.Error())
+				}
+				ofile, err = os.OpenFile(path.Join(out, files[i]), os.O_RDWR|os.O_CREATE, 0644)
+				if err != nil {
+					log.Fatalf("can't create %s in out dir: %s", files[i], err.Error())
+				}
+				_, err = ofile.Write(data)
+				if err != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+				err = ofile.Close()
+				if err != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+			}
+		} else {
+			for i := range files {
+				if copyToDir(path.Join(template, files[i]), out) != nil {
+					log.Fatalf("can't write %s: %s", files[i], err.Error())
+				}
+			}
+		}
+
 		ofile, err = os.OpenFile(path.Join(out, "compare.js"), os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("can't create compare.js in out dir: %s", err.Error())
@@ -247,15 +261,6 @@ func dumpDiffAggStat(agg *aggstat.LabelURLAggStat, cmpAgg *aggstat.LabelURLAggSt
 		_, err = ofile.Write(obytes)
 		if err != nil {
 			log.Fatalf("can't write compare.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "compare-tables.js"), out) != nil {
-			log.Fatalf("can't write compare-tables.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "compare-data.js"), out) != nil {
-			log.Fatalf("can't write compare-data.js: %s", err.Error())
-		}
-		if copyToDir(path.Join(template, "compare.html"), out) != nil {
-			log.Fatalf("can't write compare.html: %s", err.Error())
 		}
 	}
 }
@@ -280,13 +285,13 @@ func main() {
 
 	var template string
 	flag.StringVar(&template, "template", "", "Dir for html templates")
-	if len(template) == 0 {
+	/* 	if len(template) == 0 {
 		var err error
 		template, err = searchHTMLTemplate()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-	}
+	} */
 
 	var jsonOut bool
 	var htmlOut bool

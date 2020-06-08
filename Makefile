@@ -23,10 +23,12 @@ test: FORCE
 
 prep:
 	GO111MODULE=on go get -u github.com/mailru/easyjson/...@v0.7.1
+	GO111MODULE=on go get -u github.com/go-bindata/go-bindata/...@v3.1.2+incompatible
 
 gen:
 	easyjson -all pkg/aggstat/aggstat.go
 	easyjson -all pkg/aggstatcmp/aggstatcmp.go
+	go-bindata -o cmd/jmeterstat/bindata.go template
 
 lint:
 	golangci-lint run
