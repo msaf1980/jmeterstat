@@ -15,6 +15,7 @@ import (
 
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 	"github.com/msaf1980/jmeterstat/pkg/aggstatcmp"
+	"github.com/msaf1980/jmeterstat/pkg/aggtable"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
@@ -43,10 +44,7 @@ func copyToDir(src, dstDir string) error {
 	return out.Close()
 }
 
-func dumpAggStat(urlStat jmeterstat.JMeterLabelURLStat, name string, out string, htmlOut bool, jsonOut bool, template string) {
-	var agg aggstat.LabelURLAggStat
-	agg.Init(urlStat, name)
-
+func dumpAggStat(agg *aggstat.LabelURLAggStat, out string, htmlOut bool, jsonOut bool, template string) {
 	var obytes []byte
 	var ofile *os.File
 	var err error
@@ -70,7 +68,7 @@ func dumpAggStat(urlStat jmeterstat.JMeterLabelURLStat, name string, out string,
 	if htmlOut {
 		var files = []string{"report-tables.js", "report-data.js", "report.html"}
 		if len(template) == 0 {
-			eTemplate := "template/"
+			eTemplate := "web/"
 			for i := range files {
 				source := eTemplate + files[i]
 				data, err := Asset(source)
@@ -197,10 +195,7 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 	return urlStat
 }
 
-func dumpDiffAggStat(agg *aggstat.LabelURLAggStat, cmpAgg *aggstat.LabelURLAggStat, out string, htmlOut bool, jsonOut bool, template string) {
-	var diffAgg aggstatcmp.LabelURLAggDiffStat
-	diffAgg.DiffPcnt(agg, cmpAgg)
-
+func dumpDiffAggStat(diffAgg *aggstatcmp.LabelURLAggDiffStat, cmpAgg *aggstat.LabelURLAggStat, out string, htmlOut bool, jsonOut bool, template string) {
 	obytes, err := diffAgg.MarshalJSON()
 	if err != nil {
 		log.Fatalf("can't marshal JSON: %s", err.Error())
@@ -222,7 +217,7 @@ func dumpDiffAggStat(agg *aggstat.LabelURLAggStat, cmpAgg *aggstat.LabelURLAggSt
 	if htmlOut {
 		var files = []string{"compare-tables.js", "compare-data.js", "compare.html"}
 		if len(template) == 0 {
-			eTemplate := "template/"
+			eTemplate := "web/"
 			for i := range files {
 				source := eTemplate + files[i]
 				data, err := Asset(source)
@@ -272,43 +267,64 @@ const (
 	NONE action = iota
 	// CSVREPORT generate report from csv
 	CSVREPORT
+	// LOADREPORT load aggregated report
+	LOADREPORT
 	// COMPARE compare two reports
 	COMPARE
+	// LOADCOMPARE load diff aggregated report
+	LOADCOMPARE
 )
 
 func main() {
-	cpuProfile := flag.String("cpuprofile", "", "Write cpu profile to file")
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	name := flag.String("name", "", "Test name")
+	cpuProfile := fs.String("cpuprofile", "", "Write cpu profile to file")
 
-	out := flag.String("out", "", "Dir for store report")
+	name := fs.String("name", "", "Test name")
+
+	out := fs.String("out", "", "Dir for store report")
 
 	var template string
-	flag.StringVar(&template, "template", "", "Dir for html templates")
-	/* 	if len(template) == 0 {
-		var err error
-		template, err = searchHTMLTemplate()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	} */
+	fs.StringVar(&template, "template", "", "Dir for html templates")
 
 	var jsonOut bool
 	var htmlOut bool
-	flag.BoolVar(&jsonOut, "json", false, "save json")
-	flag.BoolVar(&htmlOut, "html", true, "save html report")
+	fs.BoolVar(&jsonOut, "json", false, "save json")
+	fs.BoolVar(&htmlOut, "html", false, "save html report")
 
 	var action action
 
-	csvFilename := flag.String("csvfile", "", "JMeter results (CSV format) (use '-' for stdin)")
-	urlTransform := flag.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
+	csvFilename := fs.String("csvfile", "", "JMeter results (CSV format) (use '-' for stdin)")
+	urlTransform := fs.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
 
-	cmpReport := flag.String("cmp", "", "jmeter report for compare")
-	report := flag.String("report", "", "jmeter report")
+	cmpReport := fs.String("cmp", "", "jmeter report for compare")
+	report := fs.String("report", "", "jmeter report")
 
-	flag.Parse()
+	var httpListen string
+	fs.StringVar(&httpListen, "http", "", "Listen embedded http server (for example :8080)")
+
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage of %s:\n", os.Args[0])
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n\n")
+
+		fmt.Fprintf(os.Stderr, "Save aggregated statistic (generate html report):\n\t%s -csvfile results.csv -urltransform '{param_value.target}' -out report\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Save aggregated statistic and start embedded http server on 8080 port:\n\t%s -csvfile results.csv -json -urltransform '{param_value.target}' -out report -http ':8080'\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Load aggregated statistic and start embedded http server on 8080 port:\n\t%s -report report/report.json -http ':8080'\n", os.Args[0])
+
+		fmt.Fprintf(os.Stderr, "\n")
+
+		fmt.Fprintf(os.Stderr, "Compare and save aggregated statistic (generate html report):\n\t%s -report report/report.json -cmp report-cmp/report.json -out compare\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Compare and save aggregated statistic, start embedded http server on 8080 port:\n\t%s -report report/report.json -cmp report-cmp/report.json -json -out compare -http ':8080'\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Load diff aggregated statistic, start embedded http server on 8080 port:\n\t%s -diff report-compare/compare.json -http ':8080'\n", os.Args[0])
+
+		os.Exit(1)
+	}
+
+	_ = fs.Parse(os.Args[1:])
+
 	if !jsonOut && !htmlOut {
-		log.Fatal(fmt.Errorf("output type not set"))
+		jsonOut = true
 	}
 
 	if len(*csvFilename) > 0 {
@@ -322,31 +338,21 @@ func main() {
 			log.Fatal(fmt.Errorf("can't run several actions in one step"))
 		}
 		if len(*urlTransform) > 0 {
-			log.Fatal(fmt.Errorf("unsupported option urltransform for compare"))
+			log.Fatal(fmt.Errorf("unsupported option urltransform for compare or load"))
 		}
 		if len(*cmpReport) == 0 {
-			log.Fatal(fmt.Errorf("compare report not set"))
+			action = LOADREPORT
+		} else {
+			action = COMPARE
 		}
-		action = COMPARE
 	}
 
 	if action == NONE {
 		log.Fatal(fmt.Errorf("input type not set"))
 	}
 
-	if len(*out) == 0 {
+	if len(*out) == 0 && httpListen == "" {
 		log.Fatal(fmt.Errorf("out dir not set"))
-	} else {
-		_, err := os.Stat(*out)
-		if err == nil {
-			log.Fatalf("out dir already exist")
-		} else if !os.IsNotExist(err) {
-			log.Fatalf("can't stat out dir: %s", err.Error())
-		}
-		err = os.Mkdir(*out, 0755)
-		if err != nil {
-			log.Fatalf("can't create out dir: %s", err.Error())
-		}
 	}
 
 	if len(*cpuProfile) != 0 {
@@ -367,10 +373,40 @@ func main() {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
+		err = os.Mkdir(*out, 0755)
+		if err != nil {
+			log.Fatalf("can't create out dir: %s", err.Error())
+		}
 		urlStat := readCsv(csvFilename, urlTransformRule)
-		dumpAggStat(urlStat, *name, *out, htmlOut, jsonOut, template)
+
+		var agg aggstat.LabelURLAggStat
+		agg.Init(urlStat, *name)
+		dumpAggStat(&agg, *out, htmlOut, jsonOut, template)
+		if httpListen != "" {
+			var aggTable aggtable.LabelStat
+			aggTable.Init(&agg)
+			agg.Reset()
+			stats.stat = &aggTable
+
+			aggReport(httpListen)
+		}
+
+	case LOADREPORT:
+		agg, err := aggstat.LabelURLAggStatLoad(*report)
+		if err != nil {
+			log.Fatalf("can't load %s: %s", *report, err.Error())
+		}
+		var aggTable aggtable.LabelStat
+		aggTable.Init(agg)
+		agg.Reset()
+		stats.stat = &aggTable
+		aggReport(httpListen)
 
 	case COMPARE:
+		err := os.Mkdir(*out, 0755)
+		if err != nil {
+			log.Fatalf("can't create out dir: %s", err.Error())
+		}
 		agg, err := readAggStat(*report)
 		if err != nil {
 			log.Fatal(err.Error())
@@ -379,7 +415,23 @@ func main() {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		dumpDiffAggStat(agg, cmpAgg, *out, htmlOut, jsonOut, template)
+
+		var diffAgg aggstatcmp.LabelURLAggDiffStat
+		diffAgg.DiffPcnt(agg, cmpAgg)
+		dumpDiffAggStat(&diffAgg, cmpAgg, *out, htmlOut, jsonOut, template)
+		if httpListen != "" {
+			stats.stat.Init(agg)
+			agg.Reset()
+
+			stats.cmpStat.Init(cmpAgg)
+			cmpAgg.Reset()
+
+			stats.diffStat = &diffAgg
+
+			aggDiffReport(httpListen)
+		}
+
+	case LOADCOMPARE:
 
 	default:
 		log.Fatalf("unknown action: %d", action)

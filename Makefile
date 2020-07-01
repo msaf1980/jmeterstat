@@ -28,7 +28,8 @@ prep:
 gen:
 	easyjson -all pkg/aggstat/aggstat.go
 	easyjson -all pkg/aggstatcmp/aggstatcmp.go
-	go-bindata -o cmd/jmeterstat/bindata.go template
+	easyjson -all pkg/datatables/datatables.go
+	go-bindata -o cmd/jmeterstat/bindata.go web web/template
 
 lint:
 	golangci-lint run

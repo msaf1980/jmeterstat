@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kr/pretty"
+
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 )
 

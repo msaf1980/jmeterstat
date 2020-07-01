@@ -1,7 +1,11 @@
 package aggstat
 
 import (
+	"fmt"
+	"io/ioutil"
 	"math"
+	"os"
+	"strings"
 
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 )
@@ -134,4 +138,37 @@ func (s *LabelURLAggStat) Init(urlStat jmeterstat.JMeterLabelURLStat, name strin
 	}
 
 	return s
+}
+
+// LabelURLAggStatLoad AggStat from JSON or js file
+func LabelURLAggStatLoad(path string) (*LabelURLAggStat, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	s := new(LabelURLAggStat)
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasSuffix(path, ".json") {
+		err = s.UnmarshalJSON(data)
+	} else if strings.HasSuffix(path, ".js") {
+		err = s.UnmarshalJSON(data[9:])
+	} else {
+		return nil, fmt.Errorf("unknown format")
+	}
+
+	return s, err
+}
+
+// Reset LabelURLAggStat
+func (s *LabelURLAggStat) Reset() {
+	s.Started = 0
+	s.Ended = 0
+
+	s.Name = ""
+
+	s.Stat = map[string]*URLAggStat{}
 }
