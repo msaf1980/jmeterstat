@@ -8,7 +8,7 @@
 <title>Benchmark report {{ .Title}}</title>
 </head>
 <body>
-{{range .Tables}}	
+{{range .Tables}}
 <table border="1" id="{{ .ID}}">
 	<thead>
 		<tr>
@@ -44,6 +44,13 @@
 			<th>P99</th>
 		</tr>
 	</thead>
+	<tfoot>
+		<tr>
+			{{range $item := .Footer}}
+    			<th>{{$item}}</th>
+  			{{end}}
+		</tr>
+	</tfoot>
 </table>
 {{end}}
 <script>
