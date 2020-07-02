@@ -138,7 +138,7 @@ func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datat
 		j := 0
 		filtered := 0
 		for i := 0; i < len(labelStat.Stat); i++ {
-			if strings.Index(labelStat.Stat[i].Request, p.Search) >= 0 {
+			if strings.Contains(labelStat.Stat[i].Request, p.Search) {
 				if start > 0 {
 					start--
 				} else if j < length {
