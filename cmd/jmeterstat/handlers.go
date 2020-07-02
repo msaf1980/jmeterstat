@@ -35,6 +35,7 @@ type statsProcessed struct {
 	diffStat *aggstatcmp.LabelURLAggDiffStat
 }
 
+// Generate page for view Jmeter satatistics
 func report(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 	source := "web/template/report.html"
 	t, err := Asset(source)
@@ -107,6 +108,7 @@ func fillRow(r *aggtable.RequestStat) []string {
 	return data
 }
 
+// fill data for table responce for datatables.net
 func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
 	var resp datatables.Responce
 	resp.Draw = p.Draw
@@ -162,6 +164,7 @@ func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datat
 	return resp
 }
 
+// extract datatables.net query params
 func getDatablesParams(r *http.Request) (datatablesParams, error) {
 	var p datatablesParams
 	var err error
@@ -195,6 +198,7 @@ func getDatablesParams(r *http.Request) (datatablesParams, error) {
 	return p, nil
 }
 
+// return Jmeter statistics table rows
 func table(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	if n, err := strconv.Atoi(vars["id"]); err == nil {
