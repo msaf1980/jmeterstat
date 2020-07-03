@@ -8,8 +8,14 @@
 <title>Benchmark report {{ .Title}}</title>
 </head>
 <body>
+<table border="1">
+	<tr><th>Test</th><th>Started</th><th>Ended</th></tr>
+	<tr><td>{{ .Title}}</td><td>{{ .Started}}</td><td>{{ .Ended}}</td></tr>
+</table><br>
+<h3>Labels statistic</h3>
 {{range .Tables}}
-<table border="1" id="{{ .ID}}">
+<div id="{{ .ID}}">
+<table border="1" id="R{{ .ID}}">
 	<thead>
 		<tr>
 			<th rowspan="1" colspan="1">{{ .Label}}</th>
@@ -46,22 +52,50 @@
 	</thead>
 	<tfoot>
 		<tr>
-			{{range $item := .Footer}}
+			{{range $item := .FooterReq}}
     			<th>{{$item}}</th>
   			{{end}}
 		</tr>
 	</tfoot>
 </table>
+<table border="1" id="E{{ .ID}}">
+	<thead>
+		<tr>
+			<th>{{ .Label}}</th>
+			<th>Samples</th>
+			{{range $item := .Errors}}
+				<th>Errors</th>
+				<th>Error</th>
+			{{end}}
+		</tr>
+	</thead>
+	<tfoot>
+		<tr>
+			{{range $item := .FooterErr}}
+    			<th>{{$item}}</th>
+  			{{end}}
+		</tr>
+	</tfoot>
+</table>
+</div>
 {{end}}
 <script>
 	$(document).ready(function() {
 		{{range .Tables}}		
-			$('#{{ .ID}}').DataTable( {
+			$('#R{{ .ID}}').DataTable( {
 				serverSide: true,
-				ajax: '/report/{{ .ID}}'
+				ajax: '/report/requests/{{ .ID}}'
 			} );
 		{{end}}
 	} );
+	$(document).ready(function() {
+		{{range .Tables}}		
+			$('#E{{ .ID}}').DataTable( {
+				serverSide: true,
+				ajax: '/report/errors/{{ .ID}}'
+			} );
+		{{end}}
+	} );	
 </script>
 </body>
 </html>

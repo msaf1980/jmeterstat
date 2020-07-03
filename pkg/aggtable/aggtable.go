@@ -116,6 +116,12 @@ func GetSortColumn(sortColumn string) (SortColumn, error) {
 	}
 }
 
+// ErrorCount error count
+type ErrorCount struct {
+	Error  string
+	Errors uint64
+}
+
 // RequestStat for request statictic
 type RequestStat struct {
 	Request string
@@ -143,10 +149,36 @@ type RequestStat struct {
 	ReceivedP90  float64
 	ReceivedP95  float64
 	ReceivedP99  float64
+
+	ErrorCodes []ErrorCount
+}
+
+func maxErrors(errCount map[string]uint64, maxCount int) []ErrorCount {
+	err := make([]ErrorCount, len(errCount))
+	i := 0
+	for code := range errCount {
+		err[i] = ErrorCount{Error: code, Errors: errCount[code]}
+		i++
+	}
+	sort.Slice(err, func(i, j int) bool {
+		if err[i].Errors == err[j].Errors {
+			return strings.Compare(err[i].Error, err[j].Error) < 0
+		}
+		return err[i].Errors > err[j].Errors
+	})
+
+	errDst := make([]ErrorCount, maxCount)
+	length := maxCount
+	if length > len(errCount) {
+		length = len(errCount)
+	}
+	copy(errDst, err[0:length])
+
+	return errDst
 }
 
 // Init from aggstat.AggStat
-func (r *RequestStat) Init(request string, stat *aggstat.AggStat) {
+func (r *RequestStat) Init(request string, stat *aggstat.AggStat, errors int) {
 	r.Request = request
 
 	r.Samples = stat.Count
@@ -172,6 +204,8 @@ func (r *RequestStat) Init(request string, stat *aggstat.AggStat) {
 	r.ReceivedP90 = stat.Bytes.P90
 	r.ReceivedP95 = stat.Bytes.P95
 	r.ReceivedP99 = stat.Bytes.P99
+
+	r.ErrorCodes = maxErrors(stat.ErrorCodes, errors)
 }
 
 // RequestsStat for requests statictic (in one label)
@@ -335,7 +369,7 @@ type LabelStat struct {
 }
 
 // Init from aggstat.LabelURLAggStat
-func (l *LabelStat) Init(lstat *aggstat.LabelURLAggStat) {
+func (l *LabelStat) Init(lstat *aggstat.LabelURLAggStat, errors int) {
 	l.Name = lstat.Name
 	l.Started = lstat.Started
 	l.Ended = lstat.Ended
@@ -348,17 +382,19 @@ func (l *LabelStat) Init(lstat *aggstat.LabelURLAggStat) {
 		l.Stat[i].Stat = make([]RequestStat, len(ustat.Stat))
 		j := 0
 		for u := range ustat.Stat {
-			l.Stat[i].Stat[j].Init(u, ustat.Stat[u])
+			l.Stat[i].Stat[j].Init(u, ustat.Stat[u], errors)
 			j++
 		}
 		l.Stat[i].Sort(SortRequest, false)
 
-		l.Stat[i].SumStat.Init("Summary", &ustat.SumStat)
+		l.Stat[i].SumStat.Init("Summary", &ustat.SumStat, errors)
 
 		i++
 	}
 
+	// sort labels
 	sort.Slice(l.Stat, func(i, j int) bool {
 		return strings.Compare(l.Stat[i].Label, l.Stat[j].Label) < 0
 	})
+
 }

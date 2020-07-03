@@ -1,9 +1,11 @@
 package aggtable
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/kr/pretty"
+	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 )
 
 func Equal(a, b []RequestStat) bool {
@@ -11,8 +13,16 @@ func Equal(a, b []RequestStat) bool {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] {
+		if !reflect.DeepEqual(a[i], b[i]) {
 			return false
+		}
+		if len(a[i].ErrorCodes) != len(b[i].ErrorCodes) {
+			return false
+		}
+		for j := range a[i].ErrorCodes {
+			if a[i].ErrorCodes[j] != b[i].ErrorCodes[j] {
+				return false
+			}
 		}
 	}
 	return true
@@ -454,6 +464,123 @@ func TestRequestsStat_Sort(t *testing.T) {
 		input.Sort(tt.args.sortCol, tt.args.sortDesc)
 		if !Equal(input.Stat, tt.result) {
 			t.Errorf("%s, got\n%# v\n, want\n%# v\n", tt.name, pretty.Formatter(input.Stat), pretty.Formatter(tt.result))
+		}
+	}
+}
+
+func TestRequestStat_Init(t *testing.T) {
+	type args struct {
+		request   string
+		stat      aggstat.AggStat
+		maxErrors int
+	}
+	tests := []struct {
+		name   string
+		args   args
+		result RequestStat
+	}{
+		{
+			name: "errors extend",
+			args: args{
+				request: "/test",
+				stat: aggstat.AggStat{
+					Started:      10,
+					Ended:        20,
+					Count:        5,
+					Elapsed:      aggstat.AggStatNode{Min: 1, Max: 3, Mean: 2, P90: 2, P95: 2, P99: 2},
+					Connect:      aggstat.AggStatNode{Min: 10, Max: 30, Mean: 20, P90: 20, P95: 20, P99: 20},
+					Bytes:        aggstat.AggStatNode{Min: 10, Max: 30, Mean: 20, P90: 20, P95: 20, P99: 20},
+					SentBytes:    aggstat.AggStatNode{Min: 1, Max: 3, Mean: 2, P90: 2, P95: 2, P99: 2},
+					Success:      2,
+					SuccessCodes: map[string]uint64{"200": 2},
+					ErrorCodes:   map[string]uint64{"500": 1, "504": 2},
+				},
+				maxErrors: 5,
+			},
+			result: RequestStat{
+				Request:          "/test",
+				Samples:          5,
+				Errors:           60.0,
+				ResponceTimeMean: 2.0,
+				ResponceTimeMin:  1.0,
+				ResponceTimeMax:  3.0,
+				ResponceTimeP90:  2.0,
+				ResponceTimeP95:  2.0,
+				ResponceTimeP99:  2.0,
+				SentMean:         2.0,
+				SentMin:          1.0,
+				SentMax:          3.0,
+				SentP90:          2.0,
+				SentP95:          2.0,
+				SentP99:          2.0,
+				ReceivedMean:     20.0,
+				ReceivedMin:      10.0,
+				ReceivedMax:      30.0,
+				ReceivedP90:      20.0,
+				ReceivedP95:      20.0,
+				ReceivedP99:      20.0,
+				ErrorCodes: []ErrorCount{
+					{"504", 2},
+					{"500", 1},
+					{},
+					{},
+					{},
+				},
+			},
+		},
+		{
+			name: "errors truncated",
+			args: args{
+				request: "/test",
+				stat: aggstat.AggStat{
+					Started:      10,
+					Ended:        20,
+					Count:        10,
+					Elapsed:      aggstat.AggStatNode{Min: 1, Max: 3, Mean: 2, P90: 2, P95: 2, P99: 2},
+					Connect:      aggstat.AggStatNode{Min: 10, Max: 30, Mean: 20, P90: 20, P95: 20, P99: 20},
+					Bytes:        aggstat.AggStatNode{Min: 10, Max: 30, Mean: 20, P90: 20, P95: 20, P99: 20},
+					SentBytes:    aggstat.AggStatNode{Min: 1, Max: 3, Mean: 2, P90: 2, P95: 2, P99: 2},
+					Success:      2,
+					SuccessCodes: map[string]uint64{"200": 2},
+					ErrorCodes:   map[string]uint64{"500": 1, "403": 2, "504": 2, "502": 5},
+				},
+				maxErrors: 3,
+			},
+			result: RequestStat{
+				Request:          "/test",
+				Samples:          10,
+				Errors:           80.0,
+				ResponceTimeMean: 2.0,
+				ResponceTimeMin:  1.0,
+				ResponceTimeMax:  3.0,
+				ResponceTimeP90:  2.0,
+				ResponceTimeP95:  2.0,
+				ResponceTimeP99:  2.0,
+				SentMean:         2.0,
+				SentMin:          1.0,
+				SentMax:          3.0,
+				SentP90:          2.0,
+				SentP95:          2.0,
+				SentP99:          2.0,
+				ReceivedMean:     20.0,
+				ReceivedMin:      10.0,
+				ReceivedMax:      30.0,
+				ReceivedP90:      20.0,
+				ReceivedP95:      20.0,
+				ReceivedP99:      20.0,
+				ErrorCodes: []ErrorCount{
+					{"502", 5},
+					{"504", 2},
+					{"403", 2},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		r := RequestStat{}
+		r.Init(tt.args.request, &tt.args.stat, tt.args.maxErrors)
+		if !reflect.DeepEqual(r, tt.result) {
+			t.Errorf("%s, got\n%# v\n, want\n%# v\n, diff\n%# v\n", tt.name, pretty.Formatter(r), pretty.Formatter(tt.result), pretty.Diff(tt.result, r))
 		}
 	}
 }

@@ -292,6 +292,8 @@ func main() {
 	fs.BoolVar(&jsonOut, "json", false, "save json")
 	fs.BoolVar(&htmlOut, "html", false, "save html report")
 
+	maxErrors := 5
+
 	var action action
 
 	csvFilename := fs.String("csvfile", "", "JMeter results (CSV format) (use '-' for stdin)")
@@ -384,7 +386,7 @@ func main() {
 		dumpAggStat(&agg, *out, htmlOut, jsonOut, template)
 		if httpListen != "" {
 			var aggTable aggtable.LabelStat
-			aggTable.Init(&agg)
+			aggTable.Init(&agg, maxErrors)
 			agg.Reset()
 			stats.stat = &aggTable
 
@@ -397,7 +399,7 @@ func main() {
 			log.Fatalf("can't load %s: %s", *report, err.Error())
 		}
 		var aggTable aggtable.LabelStat
-		aggTable.Init(agg)
+		aggTable.Init(agg, maxErrors)
 		agg.Reset()
 		stats.stat = &aggTable
 		aggReport(httpListen)
@@ -420,10 +422,10 @@ func main() {
 		diffAgg.DiffPcnt(agg, cmpAgg)
 		dumpDiffAggStat(&diffAgg, cmpAgg, *out, htmlOut, jsonOut, template)
 		if httpListen != "" {
-			stats.stat.Init(agg)
+			stats.stat.Init(agg, maxErrors)
 			agg.Reset()
 
-			stats.cmpStat.Init(cmpAgg)
+			stats.cmpStat.Init(cmpAgg, maxErrors)
 			cmpAgg.Reset()
 
 			stats.diffStat = &diffAgg

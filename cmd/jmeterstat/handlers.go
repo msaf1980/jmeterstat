@@ -19,14 +19,21 @@ import (
 var stats statsProcessed
 
 type viewTable struct {
-	Label  string
-	ID     string
-	Footer []string
+	Label string
+	ID    string
+
+	FooterReq []string
+
+	MaxErrors int
+	Errors    []int
+	FooterErr []string
 }
 
 type viewStat struct {
-	Title  string
-	Tables []viewTable
+	Title   string
+	Started string
+	Ended   string
+	Tables  []viewTable
 }
 
 type statsProcessed struct {
@@ -52,13 +59,21 @@ func report(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		tables := make([]viewTable, len(stat.Stat))
 		for i := range stat.Stat {
-			tables[i] = viewTable{Label: stat.Stat[i].Label, ID: strconv.Itoa(i)}
-			tables[i].Footer = fillRow(&stat.Stat[i].SumStat)
+			tables[i] = viewTable{Label: stat.Stat[i].Label, ID: strconv.Itoa(i), MaxErrors: 5}
+
+			tables[i].FooterReq = fillRowReq(&stat.Stat[i].SumStat)
+
+			tables[i].Errors = make([]int, tables[i].MaxErrors)
+			tables[i].FooterErr = fillRowErr(&stat.Stat[i].SumStat)
 		}
-		tmplParams := viewStat{Title: stats.stat.Name, Tables: tables}
+		tmplParams := viewStat{
+			Title:   stats.stat.Name,
+			Started: time.Unix(stat.Started/1000, 0).Format(time.RFC3339),
+			Ended:   time.Unix(stat.Ended/1000, 0).Format(time.RFC3339),
+			Tables:  tables,
+		}
 		err = tmpl.Execute(w, tmplParams)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 		}
 	} else {
@@ -78,7 +93,7 @@ type datatablesParams struct {
 	OrderDesc   bool
 }
 
-func fillRow(r *aggtable.RequestStat) []string {
+func fillRowReq(r *aggtable.RequestStat) []string {
 	data := make([]string, 21)
 	data[0] = r.Request
 	data[1] = strconv.FormatUint(r.Samples, 10)
@@ -109,7 +124,7 @@ func fillRow(r *aggtable.RequestStat) []string {
 }
 
 // fill data for table responce for datatables.net
-func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
+func fillTableReq(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
 	var resp datatables.Responce
 	resp.Draw = p.Draw
 
@@ -132,7 +147,7 @@ func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datat
 		resp.Data = make([][]string, length)
 		j := 0
 		for i := start; i < start+length; i++ {
-			resp.Data[j] = fillRow(&labelStat.Stat[i])
+			resp.Data[j] = fillRowReq(&labelStat.Stat[i])
 			j++
 		}
 	} else {
@@ -144,7 +159,81 @@ func fillTable(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datat
 				if start > 0 {
 					start--
 				} else if j < length {
-					resp.Data[j] = fillRow(&labelStat.Stat[i])
+					resp.Data[j] = fillRowReq(&labelStat.Stat[i])
+					j++
+				}
+				filtered++
+			}
+		}
+		resp.RecordsFiltered = filtered
+		if j < length {
+			// not full, resize needed
+			data := resp.Data
+			resp.Data = make([][]string, j)
+			for i := 0; i < j; i++ {
+				resp.Data[i] = data[i]
+			}
+		}
+	}
+
+	return resp
+}
+
+func fillRowErr(r *aggtable.RequestStat) []string {
+	data := make([]string, 2*len(r.ErrorCodes)+2)
+	data[0] = r.Request
+	data[1] = strconv.FormatUint(r.Samples, 10)
+
+	for i := range r.ErrorCodes {
+		if len(r.ErrorCodes[i].Error) == 0 {
+			data[2+2*i] = ""
+			data[3+2*i] = ""
+		} else {
+			data[2+2*i] = strconv.FormatUint(r.ErrorCodes[i].Errors, 10)
+			data[3+2*i] = r.ErrorCodes[i].Error
+		}
+	}
+
+	return data
+}
+
+// fill data for table responce for datatables.net
+func fillTableErr(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
+	var resp datatables.Responce
+	resp.Draw = p.Draw
+
+	labelStat := stat.Stat[tableID]
+
+	resp.RecordsTotal = len(labelStat.Stat)
+	resp.RecordsFiltered = resp.RecordsTotal
+
+	labelStat.Sort(p.OrderCol, p.OrderDesc)
+	start := p.Start
+	length := p.Length
+	if start < 0 || length <= 0 || start >= len(labelStat.Stat) {
+		resp.Data = [][]string{}
+		return resp
+	} else if length > len(labelStat.Stat)-start {
+		length = len(labelStat.Stat) - start
+	}
+
+	if len(p.Search) == 0 {
+		resp.Data = make([][]string, length)
+		j := 0
+		for i := start; i < start+length; i++ {
+			resp.Data[j] = fillRowErr(&labelStat.Stat[i])
+			j++
+		}
+	} else {
+		resp.Data = make([][]string, length)
+		j := 0
+		filtered := 0
+		for i := 0; i < len(labelStat.Stat); i++ {
+			if strings.Contains(labelStat.Stat[i].Request, p.Search) {
+				if start > 0 {
+					start--
+				} else if j < length {
+					resp.Data[j] = fillRowErr(&labelStat.Stat[i])
 					j++
 				}
 				filtered++
@@ -199,7 +288,7 @@ func getDatablesParams(r *http.Request) (datatablesParams, error) {
 }
 
 // return Jmeter statistics table rows
-func table(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
+func tableRequests(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	if n, err := strconv.Atoi(vars["id"]); err == nil {
 		p, err := getDatablesParams(r)
@@ -208,10 +297,46 @@ func table(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 			n, p.Draw, p.Start, p.Length, p.OrderCol, p.OrderDesc, p.SearchRegex, p.Search)
 
 		if err == nil {
-			respData := fillTable(n, stat, &p)
+			respData := fillTableReq(n, stat, &p)
 
 			fmt.Printf("\nReturned table ID: %d, draw: %d, count %d (%d), filtered %d",
 				n, respData.Draw, respData.RecordsTotal, len(respData.Data), respData.RecordsFiltered)
+
+			resp, err := respData.MarshalJSON()
+			if err == nil {
+				_, _ = w.Write(resp)
+			} else {
+				_, _ = w.Write([]byte(err.Error()))
+			}
+		} else {
+			w.WriteHeader(http.StatusOK)
+			respErr := datatables.ResponceError{Draw: p.Draw, Error: err.Error()}
+			resp, err := respErr.MarshalJSON()
+			if err != nil {
+				_, _ = w.Write(resp)
+			} else {
+				_, _ = w.Write([]byte(err.Error()))
+			}
+		}
+	} else {
+		w.WriteHeader(http.StatusOK)
+		respErr := datatables.ResponceError{Draw: 0, Error: "Uncorrect table id"}
+		resp, err := respErr.MarshalJSON()
+		if err != nil {
+			_, _ = w.Write(resp)
+		} else {
+			_, _ = w.Write([]byte(err.Error()))
+		}
+	}
+}
+
+// return Jmeter statistics table rows
+func tableErrors(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if n, err := strconv.Atoi(vars["id"]); err == nil {
+		p, err := getDatablesParams(r)
+		if err == nil {
+			respData := fillTableErr(n, stat, &p)
 
 			resp, err := respData.MarshalJSON()
 			if err == nil {
@@ -246,11 +371,15 @@ func handlerAggRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerReportTable(w http.ResponseWriter, r *http.Request) {
-	table(stats.stat, w, r)
+	tableRequests(stats.stat, w, r)
+}
+
+func handlerErrorTable(w http.ResponseWriter, r *http.Request) {
+	tableErrors(stats.stat, w, r)
 }
 
 func handlerCmpReportTable(w http.ResponseWriter, r *http.Request) {
-	table(stats.cmpStat, w, r)
+	tableRequests(stats.cmpStat, w, r)
 }
 
 func handlerAggDiffRoot(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +393,8 @@ func aggReport(listen string) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", handlerAggRoot)
-	r.HandleFunc("/report/{id}", handlerReportTable)
+	r.HandleFunc("/report/requests/{id}", handlerReportTable)
+	r.HandleFunc("/report/errors/{id}", handlerErrorTable)
 
 	httpServer := &http.Server{
 		Addr:           listen,
@@ -288,8 +418,8 @@ func aggDiffReport(listen string) {
 	r := mux.NewRouter()
 	r.HandleFunc("/", handlerAggDiffRoot)
 
-	r.HandleFunc("/report/{id}", handlerReportTable)
-	r.HandleFunc("/cmpreport/{id}", handlerCmpReportTable)
+	r.HandleFunc("/report/requests/{id}", handlerReportTable)
+	r.HandleFunc("/cmpreport/requests/{id}", handlerCmpReportTable)
 
 	httpServer := &http.Server{
 		Addr:           listen,
