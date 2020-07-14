@@ -1,12 +1,33 @@
 package jmeterreader
 
 import (
-	"github.com/stretchr/testify/assert"
-
 	"fmt"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func Test_stripResponseCode(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "503",
+			want:  "503",
+		},
+		{
+			input: "Non HTTP response code: java.net.SocketTimeoutException",
+			want:  "java.net.SocketTimeoutException",
+		},
+	}
+	for _, tt := range tests {
+		if got := stripResponseCode(tt.input); got != tt.want {
+			t.Errorf("stripResponseCode(%s) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
 
 func TestCorrecJmeterCsv(t *testing.T) {
 	csvFilename := "test/correct.csv"

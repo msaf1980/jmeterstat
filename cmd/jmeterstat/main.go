@@ -16,6 +16,7 @@ import (
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 	"github.com/msaf1980/jmeterstat/pkg/aggstatcmp"
 	"github.com/msaf1980/jmeterstat/pkg/aggtable"
+	"github.com/msaf1980/jmeterstat/pkg/aggtablecmp"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterreader"
 	"github.com/msaf1980/jmeterstat/pkg/jmeterstat"
 	urltransform "github.com/msaf1980/jmeterstat/pkg/urltransform"
@@ -302,6 +303,8 @@ func main() {
 	cmpReport := fs.String("cmp", "", "jmeter report for compare")
 	report := fs.String("report", "", "jmeter report")
 
+	diffReport := fs.String("diff", "", "jmeter compare report")
+
 	var httpListen string
 	fs.StringVar(&httpListen, "http", "", "Listen embedded http server (for example :8080)")
 
@@ -331,7 +334,7 @@ func main() {
 
 	if len(*csvFilename) > 0 {
 		if len(*report) > 0 || len(*cmpReport) > 0 {
-			log.Fatal(fmt.Errorf("set compare report in generate step"))
+			log.Fatal(fmt.Errorf("set compare report"))
 		}
 		action = CSVREPORT
 	}
@@ -346,6 +349,13 @@ func main() {
 			action = LOADREPORT
 		} else {
 			action = COMPARE
+		}
+	} else {
+		if len(*cmpReport) > 0 {
+			log.Fatal(fmt.Errorf("report not set"))
+		}
+		if len(*diffReport) > 0 {
+			action = LOADCOMPARE
 		}
 	}
 
@@ -405,10 +415,6 @@ func main() {
 		aggReport(httpListen)
 
 	case COMPARE:
-		err := os.Mkdir(*out, 0755)
-		if err != nil {
-			log.Fatalf("can't create out dir: %s", err.Error())
-		}
 		agg, err := readAggStat(*report)
 		if err != nil {
 			log.Fatal(err.Error())
@@ -419,22 +425,37 @@ func main() {
 		}
 
 		var diffAgg aggstatcmp.LabelURLAggDiffStat
-		diffAgg.DiffPcnt(agg, cmpAgg)
+		diffAgg.Init(agg, cmpAgg)
+		err = os.Mkdir(*out, 0755)
+		if err != nil {
+			log.Fatalf("can't create out dir: %s", err.Error())
+		}
 		dumpDiffAggStat(&diffAgg, cmpAgg, *out, htmlOut, jsonOut, template)
 		if httpListen != "" {
+			stats.stat = new(aggtable.LabelStat)
 			stats.stat.Init(agg, maxErrors)
 			agg.Reset()
 
+			stats.cmpStat = new(aggtable.LabelStat)
 			stats.cmpStat.Init(cmpAgg, maxErrors)
 			cmpAgg.Reset()
 
-			stats.diffStat = &diffAgg
+			stats.diffStat = new(aggtablecmp.LabelDiffStat)
+			stats.diffStat.Init(&diffAgg, maxErrors)
+			diffAgg.Reset()
 
 			aggDiffReport(httpListen)
 		}
 
 	case LOADCOMPARE:
-
+		agg, err := aggstatcmp.LabelURLAggDiffStatLoad(*diffReport)
+		if err != nil {
+			log.Fatalf("can't load %s: %s", *diffReport, err.Error())
+		}
+		stats.diffStat = new(aggtablecmp.LabelDiffStat)
+		stats.diffStat.Init(agg, maxErrors)
+		agg.Reset()
+		aggDiffReport(httpListen)
 	default:
 		log.Fatalf("unknown action: %d", action)
 	}

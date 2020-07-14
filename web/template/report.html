@@ -5,12 +5,12 @@
 <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedcolumns/3.3.1/js/dataTables.fixedColumns.min.js"></script>
-<title>Benchmark report {{ .Title}}</title>
+<title>Benchmark report {{ .Report.Title}}</title>
 </head>
 <body>
 <table border="1">
 	<tr><th>Test</th><th>Started</th><th>Ended</th></tr>
-	<tr><td>{{ .Title}}</td><td>{{ .Started}}</td><td>{{ .Ended}}</td></tr>
+	<tr><td>{{ .Report.Title}}</td><td>{{ .Report.Started}}</td><td>{{ .Report.Ended}}</td></tr>
 </table><br>
 <h3>Labels statistic</h3>
 {{range .Tables}}

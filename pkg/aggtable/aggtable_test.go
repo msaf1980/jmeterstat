@@ -8,7 +8,19 @@ import (
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 )
 
-func Equal(a, b []RequestStat) bool {
+func equalRequests(a, b []RequestStat) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !reflect.DeepEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func equalErrors(a, b []ErrorStat) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -19,6 +31,7 @@ func Equal(a, b []RequestStat) bool {
 		if len(a[i].ErrorCodes) != len(b[i].ErrorCodes) {
 			return false
 		}
+
 		for j := range a[i].ErrorCodes {
 			if a[i].ErrorCodes[j] != b[i].ErrorCodes[j] {
 				return false
@@ -28,14 +41,14 @@ func Equal(a, b []RequestStat) bool {
 	return true
 }
 
-func TestRequestsStat_Sort(t *testing.T) {
+func TestRequestsStat_SortRequests(t *testing.T) {
 	type args struct {
 		sortCol  SortColumn
 		sortDesc bool
 	}
 	input := RequestsStat{
-		"test",
-		[]RequestStat{
+		Label: "test",
+		Stat: []RequestStat{
 			{
 				Request: "/test1",
 				Samples: 10,
@@ -115,7 +128,7 @@ func TestRequestsStat_Sort(t *testing.T) {
 				ReceivedP99:  14,
 			},
 		},
-		RequestStat{},
+		ErrStat: []ErrorStat{},
 	}
 	tests := []struct {
 		name   string
@@ -461,8 +474,8 @@ func TestRequestsStat_Sort(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		input.Sort(tt.args.sortCol, tt.args.sortDesc)
-		if !Equal(input.Stat, tt.result) {
+		input.SortRequests(tt.args.sortCol, tt.args.sortDesc)
+		if !equalRequests(input.Stat, tt.result) {
 			t.Errorf("%s, got\n%# v\n, want\n%# v\n", tt.name, pretty.Formatter(input.Stat), pretty.Formatter(tt.result))
 		}
 	}
@@ -470,9 +483,8 @@ func TestRequestsStat_Sort(t *testing.T) {
 
 func TestRequestStat_Init(t *testing.T) {
 	type args struct {
-		request   string
-		stat      aggstat.AggStat
-		maxErrors int
+		request string
+		stat    aggstat.AggStat
 	}
 	tests := []struct {
 		name   string
@@ -495,7 +507,6 @@ func TestRequestStat_Init(t *testing.T) {
 					SuccessCodes: map[string]uint64{"200": 2},
 					ErrorCodes:   map[string]uint64{"500": 1, "504": 2},
 				},
-				maxErrors: 5,
 			},
 			result: RequestStat{
 				Request:          "/test",
@@ -519,13 +530,6 @@ func TestRequestStat_Init(t *testing.T) {
 				ReceivedP90:      20.0,
 				ReceivedP95:      20.0,
 				ReceivedP99:      20.0,
-				ErrorCodes: []ErrorCount{
-					{"504", 2},
-					{"500", 1},
-					{},
-					{},
-					{},
-				},
 			},
 		},
 		{
@@ -544,7 +548,6 @@ func TestRequestStat_Init(t *testing.T) {
 					SuccessCodes: map[string]uint64{"200": 2},
 					ErrorCodes:   map[string]uint64{"500": 1, "403": 2, "504": 2, "502": 5},
 				},
-				maxErrors: 3,
 			},
 			result: RequestStat{
 				Request:          "/test",
@@ -568,19 +571,389 @@ func TestRequestStat_Init(t *testing.T) {
 				ReceivedP90:      20.0,
 				ReceivedP95:      20.0,
 				ReceivedP99:      20.0,
-				ErrorCodes: []ErrorCount{
-					{"502", 5},
-					{"504", 2},
-					{"403", 2},
-				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		r := RequestStat{}
-		r.Init(tt.args.request, &tt.args.stat, tt.args.maxErrors)
+		r.Init(tt.args.request, &tt.args.stat)
 		if !reflect.DeepEqual(r, tt.result) {
 			t.Errorf("%s, got\n%# v\n, want\n%# v\n, diff\n%# v\n", tt.name, pretty.Formatter(r), pretty.Formatter(tt.result), pretty.Diff(tt.result, r))
 		}
+	}
+}
+
+func TestRequestsStat_SortErrors(t *testing.T) {
+	input := []ErrorStat{
+		{
+			Request: "/test2",
+			Samples: 16,
+			ErrorCodes: []ErrorCount{
+				{"500", 1},
+				{"401", 3},
+				{"503", 5},
+				{"504", 2},
+				{"403", 1},
+			},
+		},
+		{
+			Request: "/test1",
+			Samples: 12,
+			ErrorCodes: []ErrorCount{
+				{"502", 5},
+				{"403", 2},
+				{"504", 2},
+				{"", 0},
+				{"", 0},
+			},
+		},
+		{
+			Request: "/test3",
+			Samples: 20,
+			ErrorCodes: []ErrorCount{
+				{"500", 2},
+				{"401", 1},
+				{"503", 6},
+				{"504", 1},
+				{"403", 1},
+			},
+		},
+	}
+
+	type args struct {
+		sortCol  int
+		sortDesc bool
+	}
+	tests := []struct {
+		name   string
+		args   args
+		result []ErrorStat
+	}{
+		{
+			"SortErrors(0, false)",
+			args{0, false},
+			[]ErrorStat{
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+			},
+		},
+		{
+			"SortErrors(0, true)",
+			args{0, true},
+			[]ErrorStat{
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+			},
+		},
+
+		{
+			"SortErrors(1, false)",
+			args{1, false},
+			[]ErrorStat{
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+			},
+		},
+
+		{
+			"SortErrors(1, true)",
+			args{1, true},
+			[]ErrorStat{
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+			},
+		},
+		{
+			"SortErrors(2, false)",
+			args{2, false},
+			[]ErrorStat{
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+			},
+		},
+
+		{
+			"SortErrors(2, true)",
+			args{2, true},
+			[]ErrorStat{
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+			},
+		},
+
+		{
+			"SortErrors(3, false)",
+			args{3, false},
+			[]ErrorStat{
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+			},
+		},
+
+		{
+			"SortErrors(4, true)",
+			args{4, true},
+			[]ErrorStat{
+				{
+					Request: "/test2",
+					Samples: 16,
+					ErrorCodes: []ErrorCount{
+						{"500", 1},
+						{"401", 3},
+						{"503", 5},
+						{"504", 2},
+						{"403", 1},
+					},
+				},
+				{
+					Request: "/test1",
+					Samples: 12,
+					ErrorCodes: []ErrorCount{
+						{"502", 5},
+						{"403", 2},
+						{"504", 2},
+						{"", 0},
+						{"", 0},
+					},
+				},
+				{
+					Request: "/test3",
+					Samples: 20,
+					ErrorCodes: []ErrorCount{
+						{"500", 2},
+						{"401", 1},
+						{"503", 6},
+						{"504", 1},
+						{"403", 1},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := RequestsStat{ErrStat: input}
+			r.SortErrors(tt.args.sortCol, tt.args.sortDesc)
+			if !equalErrors(r.ErrStat, tt.result) {
+				t.Errorf("%s, got\n%# v\n, want\n%# v\n, diff\n%# v\n", tt.name, pretty.Formatter(r.ErrStat), pretty.Formatter(tt.result), pretty.Diff(r.ErrStat, tt.result))
+			}
+		})
 	}
 }

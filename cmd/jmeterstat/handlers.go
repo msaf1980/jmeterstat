@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -11,12 +10,17 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/msaf1980/jmeterstat/pkg/aggstatcmp"
 	"github.com/msaf1980/jmeterstat/pkg/aggtable"
-	"github.com/msaf1980/jmeterstat/pkg/datatables"
+	"github.com/msaf1980/jmeterstat/pkg/aggtablecmp"
 )
 
 var stats statsProcessed
+
+type viewReport struct {
+	Title   string
+	Started string
+	Ended   string
+}
 
 type viewTable struct {
 	Label string
@@ -29,58 +33,10 @@ type viewTable struct {
 	FooterErr []string
 }
 
-type viewStat struct {
-	Title   string
-	Started string
-	Ended   string
-	Tables  []viewTable
-}
-
 type statsProcessed struct {
 	stat     *aggtable.LabelStat
 	cmpStat  *aggtable.LabelStat
-	diffStat *aggstatcmp.LabelURLAggDiffStat
-}
-
-// Generate page for view Jmeter satatistics
-func report(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
-	source := "web/template/report.html"
-	t, err := Asset(source)
-	if err != nil {
-		eStr := fmt.Sprintf("can't read embedded %s for %s: %s", source, stat.Name, err.Error())
-		log.Fatal(eStr)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(eStr))
-		return
-	}
-
-	tmpl := template.New("report")
-	tmpl, err = tmpl.Parse(string(t))
-	if err == nil {
-		tables := make([]viewTable, len(stat.Stat))
-		for i := range stat.Stat {
-			tables[i] = viewTable{Label: stat.Stat[i].Label, ID: strconv.Itoa(i), MaxErrors: 5}
-
-			tables[i].FooterReq = fillRowReq(&stat.Stat[i].SumStat)
-
-			tables[i].Errors = make([]int, tables[i].MaxErrors)
-			tables[i].FooterErr = fillRowErr(&stat.Stat[i].SumStat)
-		}
-		tmplParams := viewStat{
-			Title:   stats.stat.Name,
-			Started: time.Unix(stat.Started/1000, 0).Format(time.RFC3339),
-			Ended:   time.Unix(stat.Ended/1000, 0).Format(time.RFC3339),
-			Tables:  tables,
-		}
-		err = tmpl.Execute(w, tmplParams)
-		if err != nil {
-			_, _ = w.Write([]byte(err.Error()))
-		}
-	} else {
-		eStr := fmt.Sprintf("can't template %s for %s: %s", source, stat.Name, err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(eStr))
-	}
+	diffStat *aggtablecmp.LabelDiffStat
 }
 
 type datatablesParams struct {
@@ -89,168 +45,8 @@ type datatablesParams struct {
 	Length      int
 	SearchRegex bool
 	Search      string
-	OrderCol    aggtable.SortColumn
+	OrderCol    int
 	OrderDesc   bool
-}
-
-func fillRowReq(r *aggtable.RequestStat) []string {
-	data := make([]string, 21)
-	data[0] = r.Request
-	data[1] = strconv.FormatUint(r.Samples, 10)
-	data[2] = strconv.FormatFloat(r.Errors, 'f', 2, 64)
-
-	data[3] = strconv.FormatFloat(r.ResponceTimeMean, 'f', 2, 64)
-	data[4] = strconv.FormatFloat(r.ResponceTimeMin, 'f', 2, 64)
-	data[5] = strconv.FormatFloat(r.ResponceTimeMax, 'f', 2, 64)
-	data[6] = strconv.FormatFloat(r.ResponceTimeP90, 'f', 2, 64)
-	data[7] = strconv.FormatFloat(r.ResponceTimeP95, 'f', 2, 64)
-	data[8] = strconv.FormatFloat(r.ResponceTimeP99, 'f', 2, 64)
-
-	data[9] = strconv.FormatFloat(r.SentMean, 'f', 2, 64)
-	data[10] = strconv.FormatFloat(r.SentMin, 'f', 2, 64)
-	data[11] = strconv.FormatFloat(r.SentMax, 'f', 2, 64)
-	data[12] = strconv.FormatFloat(r.SentP90, 'f', 2, 64)
-	data[13] = strconv.FormatFloat(r.SentP95, 'f', 2, 64)
-	data[14] = strconv.FormatFloat(r.SentP99, 'f', 2, 64)
-
-	data[15] = strconv.FormatFloat(r.ReceivedMean, 'f', 2, 64)
-	data[16] = strconv.FormatFloat(r.ReceivedMin, 'f', 2, 64)
-	data[17] = strconv.FormatFloat(r.ReceivedMax, 'f', 2, 64)
-	data[18] = strconv.FormatFloat(r.ReceivedP90, 'f', 2, 64)
-	data[19] = strconv.FormatFloat(r.ReceivedP95, 'f', 2, 64)
-	data[20] = strconv.FormatFloat(r.ReceivedP99, 'f', 2, 64)
-
-	return data
-}
-
-// fill data for table responce for datatables.net
-func fillTableReq(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
-	var resp datatables.Responce
-	resp.Draw = p.Draw
-
-	labelStat := stat.Stat[tableID]
-
-	resp.RecordsTotal = len(labelStat.Stat)
-	resp.RecordsFiltered = resp.RecordsTotal
-
-	labelStat.Sort(p.OrderCol, p.OrderDesc)
-	start := p.Start
-	length := p.Length
-	if start < 0 || length <= 0 || start >= len(labelStat.Stat) {
-		resp.Data = [][]string{}
-		return resp
-	} else if length > len(labelStat.Stat)-start {
-		length = len(labelStat.Stat) - start
-	}
-
-	if len(p.Search) == 0 {
-		resp.Data = make([][]string, length)
-		j := 0
-		for i := start; i < start+length; i++ {
-			resp.Data[j] = fillRowReq(&labelStat.Stat[i])
-			j++
-		}
-	} else {
-		resp.Data = make([][]string, length)
-		j := 0
-		filtered := 0
-		for i := 0; i < len(labelStat.Stat); i++ {
-			if strings.Contains(labelStat.Stat[i].Request, p.Search) {
-				if start > 0 {
-					start--
-				} else if j < length {
-					resp.Data[j] = fillRowReq(&labelStat.Stat[i])
-					j++
-				}
-				filtered++
-			}
-		}
-		resp.RecordsFiltered = filtered
-		if j < length {
-			// not full, resize needed
-			data := resp.Data
-			resp.Data = make([][]string, j)
-			for i := 0; i < j; i++ {
-				resp.Data[i] = data[i]
-			}
-		}
-	}
-
-	return resp
-}
-
-func fillRowErr(r *aggtable.RequestStat) []string {
-	data := make([]string, 2*len(r.ErrorCodes)+2)
-	data[0] = r.Request
-	data[1] = strconv.FormatUint(r.Samples, 10)
-
-	for i := range r.ErrorCodes {
-		if len(r.ErrorCodes[i].Error) == 0 {
-			data[2+2*i] = ""
-			data[3+2*i] = ""
-		} else {
-			data[2+2*i] = strconv.FormatUint(r.ErrorCodes[i].Errors, 10)
-			data[3+2*i] = r.ErrorCodes[i].Error
-		}
-	}
-
-	return data
-}
-
-// fill data for table responce for datatables.net
-func fillTableErr(tableID int, stat *aggtable.LabelStat, p *datatablesParams) datatables.Responce {
-	var resp datatables.Responce
-	resp.Draw = p.Draw
-
-	labelStat := stat.Stat[tableID]
-
-	resp.RecordsTotal = len(labelStat.Stat)
-	resp.RecordsFiltered = resp.RecordsTotal
-
-	labelStat.Sort(p.OrderCol, p.OrderDesc)
-	start := p.Start
-	length := p.Length
-	if start < 0 || length <= 0 || start >= len(labelStat.Stat) {
-		resp.Data = [][]string{}
-		return resp
-	} else if length > len(labelStat.Stat)-start {
-		length = len(labelStat.Stat) - start
-	}
-
-	if len(p.Search) == 0 {
-		resp.Data = make([][]string, length)
-		j := 0
-		for i := start; i < start+length; i++ {
-			resp.Data[j] = fillRowErr(&labelStat.Stat[i])
-			j++
-		}
-	} else {
-		resp.Data = make([][]string, length)
-		j := 0
-		filtered := 0
-		for i := 0; i < len(labelStat.Stat); i++ {
-			if strings.Contains(labelStat.Stat[i].Request, p.Search) {
-				if start > 0 {
-					start--
-				} else if j < length {
-					resp.Data[j] = fillRowErr(&labelStat.Stat[i])
-					j++
-				}
-				filtered++
-			}
-		}
-		resp.RecordsFiltered = filtered
-		if j < length {
-			// not full, resize needed
-			data := resp.Data
-			resp.Data = make([][]string, j)
-			for i := 0; i < j; i++ {
-				resp.Data[i] = data[i]
-			}
-		}
-	}
-
-	return resp
 }
 
 // extract datatables.net query params
@@ -272,7 +68,7 @@ func getDatablesParams(r *http.Request) (datatablesParams, error) {
 		return p, fmt.Errorf("Uncorrect search[regex]")
 	}
 	p.Search = params["search[value]"][0]
-	if p.OrderCol, err = aggtable.GetSortColumn(params["order[0][column]"][0]); err != nil {
+	if p.OrderCol, err = strconv.Atoi(params["order[0][column]"][0]); err != nil {
 		return p, fmt.Errorf("Uncorrect order[0][column]")
 	}
 	order := strings.ToLower(params["order[0][dir]"][0])
@@ -285,85 +81,6 @@ func getDatablesParams(r *http.Request) (datatablesParams, error) {
 	}
 
 	return p, nil
-}
-
-// return Jmeter statistics table rows
-func tableRequests(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	if n, err := strconv.Atoi(vars["id"]); err == nil {
-		p, err := getDatablesParams(r)
-
-		fmt.Printf("\nTable ID: %d, draw: %d, start %d, length %d, order: column %d desc %v, search (with regex: %v): '%s'",
-			n, p.Draw, p.Start, p.Length, p.OrderCol, p.OrderDesc, p.SearchRegex, p.Search)
-
-		if err == nil {
-			respData := fillTableReq(n, stat, &p)
-
-			fmt.Printf("\nReturned table ID: %d, draw: %d, count %d (%d), filtered %d",
-				n, respData.Draw, respData.RecordsTotal, len(respData.Data), respData.RecordsFiltered)
-
-			resp, err := respData.MarshalJSON()
-			if err == nil {
-				_, _ = w.Write(resp)
-			} else {
-				_, _ = w.Write([]byte(err.Error()))
-			}
-		} else {
-			w.WriteHeader(http.StatusOK)
-			respErr := datatables.ResponceError{Draw: p.Draw, Error: err.Error()}
-			resp, err := respErr.MarshalJSON()
-			if err != nil {
-				_, _ = w.Write(resp)
-			} else {
-				_, _ = w.Write([]byte(err.Error()))
-			}
-		}
-	} else {
-		w.WriteHeader(http.StatusOK)
-		respErr := datatables.ResponceError{Draw: 0, Error: "Uncorrect table id"}
-		resp, err := respErr.MarshalJSON()
-		if err != nil {
-			_, _ = w.Write(resp)
-		} else {
-			_, _ = w.Write([]byte(err.Error()))
-		}
-	}
-}
-
-// return Jmeter statistics table rows
-func tableErrors(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	if n, err := strconv.Atoi(vars["id"]); err == nil {
-		p, err := getDatablesParams(r)
-		if err == nil {
-			respData := fillTableErr(n, stat, &p)
-
-			resp, err := respData.MarshalJSON()
-			if err == nil {
-				_, _ = w.Write(resp)
-			} else {
-				_, _ = w.Write([]byte(err.Error()))
-			}
-		} else {
-			w.WriteHeader(http.StatusOK)
-			respErr := datatables.ResponceError{Draw: p.Draw, Error: err.Error()}
-			resp, err := respErr.MarshalJSON()
-			if err != nil {
-				_, _ = w.Write(resp)
-			} else {
-				_, _ = w.Write([]byte(err.Error()))
-			}
-		}
-	} else {
-		w.WriteHeader(http.StatusOK)
-		respErr := datatables.ResponceError{Draw: 0, Error: "Uncorrect table id"}
-		resp, err := respErr.MarshalJSON()
-		if err != nil {
-			_, _ = w.Write(resp)
-		} else {
-			_, _ = w.Write([]byte(err.Error()))
-		}
-	}
 }
 
 func handlerAggRoot(w http.ResponseWriter, r *http.Request) {
@@ -382,13 +99,25 @@ func handlerCmpReportTable(w http.ResponseWriter, r *http.Request) {
 	tableRequests(stats.cmpStat, w, r)
 }
 
+func handlerCmpErrorTable(w http.ResponseWriter, r *http.Request) {
+	tableErrors(stats.cmpStat, w, r)
+}
+
 func handlerAggDiffRoot(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Agg Diff with %s!", r.URL.Path[1:])
+	reportDiff(stats.diffStat, w, r)
+}
+
+func handlerDiffReportTable(w http.ResponseWriter, r *http.Request) {
+	tableDiffRequests(stats.diffStat, w, r)
+}
+
+func handlerDiffErrorTable(w http.ResponseWriter, r *http.Request) {
+	tableDiffErrors(stats.diffStat, w, r)
 }
 
 func aggReport(listen string) {
 	if stats.stat == nil {
-		log.Fatal("report not set")
+		log.Fatal("report not loaded")
 	}
 
 	r := mux.NewRouter()
@@ -408,18 +137,21 @@ func aggReport(listen string) {
 }
 
 func aggDiffReport(listen string) {
-	if stats.stat == nil {
-		log.Fatal("report not set")
-	}
-	if stats.cmpStat == nil {
-		log.Fatal("compare report not set")
+	if stats.diffStat == nil {
+		log.Fatal("report not loaded")
 	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", handlerAggDiffRoot)
 
 	r.HandleFunc("/report/requests/{id}", handlerReportTable)
+	r.HandleFunc("/report/errors/{id}", handlerErrorTable)
+
 	r.HandleFunc("/cmpreport/requests/{id}", handlerCmpReportTable)
+	r.HandleFunc("/cmpreport/errors/{id}", handlerCmpErrorTable)
+
+	r.HandleFunc("/diffreport/requests/{id}", handlerDiffReportTable)
+	r.HandleFunc("/diffreport/errors/{id}", handlerDiffErrorTable)
 
 	httpServer := &http.Server{
 		Addr:           listen,

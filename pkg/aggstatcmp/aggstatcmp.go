@@ -1,7 +1,11 @@
 package aggstatcmp
 
 import (
+	"fmt"
+	"io/ioutil"
 	"math"
+	"os"
+	"strings"
 
 	"github.com/msaf1980/jmeterstat/pkg/aggstat"
 )
@@ -21,7 +25,10 @@ type AggDiffStat struct {
 
 func diffPcnt(s float64, o float64, max float64) float64 {
 	if max == 0.0 {
-		return math.NaN()
+		if s == 0.0 && o == 0.0 {
+			return 0.0
+		}
+		return math.MaxFloat64
 	}
 	return (s - o) / max * 100.0
 }
@@ -59,8 +66,8 @@ func sum(m map[string]uint64) (sum uint64) {
 	return
 }
 
-// DiffPcnt compare compare aggregate stat s with o
-func (d *AggDiffStat) DiffPcnt(s *aggstat.AggStat, o *aggstat.AggStat) {
+// Init compare aggregate stat s with o
+func (d *AggDiffStat) Init(s *aggstat.AggStat, o *aggstat.AggStat) {
 	d.SuccessCodes = map[string]float64{}
 	d.ErrorCodes = map[string]float64{}
 
@@ -113,8 +120,8 @@ type LabelURLAggDiffStat struct {
 	Stat map[string]*URLAggDiffStat
 }
 
-// DiffPcnt compare compare aggregates stat s with o
-func (d *LabelURLAggDiffStat) DiffPcnt(s *aggstat.LabelURLAggStat, o *aggstat.LabelURLAggStat) {
+// Init compare compare aggregates stat s with o
+func (d *LabelURLAggDiffStat) Init(s *aggstat.LabelURLAggStat, o *aggstat.LabelURLAggStat) {
 	d.Name = s.Name
 	d.Started = s.Started
 	d.Ended = s.Ended
@@ -133,12 +140,45 @@ func (d *LabelURLAggDiffStat) DiffPcnt(s *aggstat.LabelURLAggStat, o *aggstat.La
 				ou, ok := loStat.Stat[url]
 				if ok {
 					stat := new(AggDiffStat)
-					stat.DiffPcnt(lStat.Stat[url], ou)
+					stat.Init(lStat.Stat[url], ou)
 					labelStat.Stat[url] = stat
 				}
 			}
-			labelStat.SumStat.DiffPcnt(&lStat.SumStat, &loStat.SumStat)
+			labelStat.SumStat.Init(&lStat.SumStat, &loStat.SumStat)
 			d.Stat[label] = labelStat
 		}
 	}
+}
+
+// LabelURLAggDiffStatLoad AggStat from JSON or js file
+func LabelURLAggDiffStatLoad(path string) (*LabelURLAggDiffStat, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	s := new(LabelURLAggDiffStat)
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasSuffix(path, ".json") {
+		err = s.UnmarshalJSON(data)
+	} else if strings.HasSuffix(path, ".js") {
+		err = s.UnmarshalJSON(data[9:])
+	} else {
+		return nil, fmt.Errorf("unknown format")
+	}
+
+	return s, err
+}
+
+// Reset LabelURLAggDiffStat
+func (d *LabelURLAggDiffStat) Reset() {
+	d.Started = 0
+	d.Ended = 0
+
+	d.Name = ""
+
+	d.Stat = map[string]*URLAggDiffStat{}
 }

@@ -224,7 +224,7 @@ func TestLabelURLAggDiffStat_Diff(t *testing.T) {
 
 	for _, tt := range tests {
 		var got LabelURLAggDiffStat
-		got.DiffPcnt(&tt.args.s, &tt.args.o)
+		got.Init(&tt.args.s, &tt.args.o)
 		if !reflect.DeepEqual(got, tt.result) {
 			t.Errorf("LabelURLAggDiffStat.DiffPcnt() =\n%# v\n, want\n%# v\n, diff\n%v", pretty.Formatter(got), pretty.Formatter(tt.result), pretty.Diff(tt.result, got))
 		}
