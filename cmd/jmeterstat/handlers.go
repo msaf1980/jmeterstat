@@ -18,6 +18,7 @@ var stats statsProcessed
 
 type viewReport struct {
 	Title   string
+	URL     bool
 	Started string
 	Ended   string
 }
@@ -84,7 +85,7 @@ func getDatablesParams(r *http.Request) (datatablesParams, error) {
 }
 
 func handlerAggRoot(w http.ResponseWriter, r *http.Request) {
-	report(stats.stat, w, r)
+	report(stats.stat, false, w, r)
 }
 
 func handlerReportTable(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +94,10 @@ func handlerReportTable(w http.ResponseWriter, r *http.Request) {
 
 func handlerErrorTable(w http.ResponseWriter, r *http.Request) {
 	tableErrors(stats.stat, w, r)
+}
+
+func handlerAggCmpRoot(w http.ResponseWriter, r *http.Request) {
+	report(stats.cmpStat, true, w, r)
 }
 
 func handlerCmpReportTable(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +109,7 @@ func handlerCmpErrorTable(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerAggDiffRoot(w http.ResponseWriter, r *http.Request) {
-	reportDiff(stats.diffStat, w, r)
+	reportDiff(stats.diffStat, stats.stat, stats.cmpStat, w, r)
 }
 
 func handlerDiffReportTable(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +148,13 @@ func aggDiffReport(listen string) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", handlerAggDiffRoot)
+
+	if stats.stat != nil {
+		r.HandleFunc("/report", handlerAggRoot)
+	}
+	if stats.cmpStat != nil {
+		r.HandleFunc("/cmpreport", handlerAggCmpRoot)
+	}
 
 	r.HandleFunc("/report/requests/{id}", handlerReportTable)
 	r.HandleFunc("/report/errors/{id}", handlerErrorTable)

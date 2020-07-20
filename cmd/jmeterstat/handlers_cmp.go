@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/msaf1980/jmeterstat/pkg/aggtable"
 	"github.com/msaf1980/jmeterstat/pkg/aggtablecmp"
 	"github.com/msaf1980/jmeterstat/pkg/datatables"
 )
@@ -141,16 +142,8 @@ func tableDiffRequests(stat *aggtablecmp.LabelDiffStat, w http.ResponseWriter, r
 	vars := mux.Vars(r)
 	if n, err := strconv.Atoi(vars["id"]); err == nil {
 		p, err := getDatablesParams(r)
-
-		fmt.Printf("\nTable ID: %d, draw: %d, start %d, length %d, order: column %d desc %v, search (with regex: %v): '%s'",
-			n, p.Draw, p.Start, p.Length, p.OrderCol, p.OrderDesc, p.SearchRegex, p.Search)
-
 		if err == nil {
 			respData := fillTableDiffReq(n, stat, &p)
-
-			fmt.Printf("\nReturned table ID: %d, draw: %d, count %d (%d), filtered %d",
-				n, respData.Draw, respData.RecordsTotal, len(respData.Data), respData.RecordsFiltered)
-
 			resp, err := respData.MarshalJSON()
 			if err == nil {
 				_, _ = w.Write(resp)
@@ -216,7 +209,7 @@ func tableDiffErrors(stat *aggtablecmp.LabelDiffStat, w http.ResponseWriter, r *
 }
 
 // Generate page for view Jmeter diff satatistics
-func reportDiff(diffStat *aggtablecmp.LabelDiffStat, w http.ResponseWriter, r *http.Request) {
+func reportDiff(diffStat *aggtablecmp.LabelDiffStat, stat *aggtable.LabelStat, cmpStat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 	source := "web/template/compare.html"
 	t, err := Asset(source)
 	if err != nil {
@@ -251,6 +244,12 @@ func reportDiff(diffStat *aggtablecmp.LabelDiffStat, w http.ResponseWriter, r *h
 				Ended:   time.Unix(diffStat.CmpEnded/1000, 0).Format(time.RFC3339),
 			},
 			Tables: tables,
+		}
+		if stat != nil {
+			tmplParams.Report.URL = true
+		}
+		if cmpStat != nil {
+			tmplParams.CmpReport.URL = true
 		}
 		err = tmpl.Execute(w, tmplParams)
 		if err != nil {

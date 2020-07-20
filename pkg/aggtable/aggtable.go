@@ -446,3 +446,17 @@ func (l *LabelStat) Init(lstat *aggstat.LabelURLAggStat, errors int) {
 		return strings.Compare(l.Stat[i].Label, l.Stat[j].Label) < 0
 	})
 }
+
+// Load report
+func Load(report *string, errors int) (*LabelStat, error) {
+	if report == nil {
+		return nil, nil
+	}
+	agg, err := aggstat.LabelURLAggStatLoad(*report)
+	if err != nil {
+		return nil, err
+	}
+	stat := new(LabelStat)
+	stat.Init(agg, errors)
+	return stat, nil
+}

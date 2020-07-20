@@ -450,3 +450,17 @@ func (l *LabelDiffStat) Init(lstat *aggstatcmp.LabelURLAggDiffStat, errors int) 
 		return strings.Compare(l.Stat[i].Label, l.Stat[j].Label) < 0
 	})
 }
+
+// Load report
+func Load(report *string, errors int) (*LabelDiffStat, error) {
+	if report == nil {
+		return nil, nil
+	}
+	agg, err := aggstatcmp.LabelURLAggDiffStatLoad(*report)
+	if err != nil {
+		return nil, err
+	}
+	stat := new(LabelDiffStat)
+	stat.Init(agg, errors)
+	return stat, nil
+}

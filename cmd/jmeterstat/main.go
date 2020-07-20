@@ -295,7 +295,7 @@ func main() {
 
 	maxErrors := 5
 
-	var action action
+	action := NONE
 
 	csvFilename := fs.String("csvfile", "", "JMeter results (CSV format) (use '-' for stdin)")
 	urlTransform := fs.String("urltransform", "", "Transformation rule for URL (nned for aggregate URLs stat)")
@@ -333,15 +333,13 @@ func main() {
 	}
 
 	if len(*csvFilename) > 0 {
-		if len(*report) > 0 || len(*cmpReport) > 0 {
-			log.Fatal(fmt.Errorf("set compare report"))
+		if len(*report) > 0 || len(*cmpReport) > 0 || len(*diffReport) > 0 {
+			log.Fatal(fmt.Errorf("can't save and load reports in one step"))
 		}
 		action = CSVREPORT
-	}
-	if len(*report) > 0 {
-		if action != NONE {
-			log.Fatal(fmt.Errorf("can't run several actions in one step"))
-		}
+	} else if len(*diffReport) > 0 {
+		action = LOADCOMPARE
+	} else if len(*report) > 0 {
 		if len(*urlTransform) > 0 {
 			log.Fatal(fmt.Errorf("unsupported option urltransform for compare or load"))
 		}
@@ -351,12 +349,7 @@ func main() {
 			action = COMPARE
 		}
 	} else {
-		if len(*cmpReport) > 0 {
-			log.Fatal(fmt.Errorf("report not set"))
-		}
-		if len(*diffReport) > 0 {
-			action = LOADCOMPARE
-		}
+		log.Fatal(fmt.Errorf("report not set"))
 	}
 
 	if action == NONE {
@@ -404,14 +397,11 @@ func main() {
 		}
 
 	case LOADREPORT:
-		agg, err := aggstat.LabelURLAggStatLoad(*report)
+		var err error
+		stats.stat, err = aggtable.Load(report, maxErrors)
 		if err != nil {
 			log.Fatalf("can't load %s: %s", *report, err.Error())
 		}
-		var aggTable aggtable.LabelStat
-		aggTable.Init(agg, maxErrors)
-		agg.Reset()
-		stats.stat = &aggTable
 		aggReport(httpListen)
 
 	case COMPARE:
@@ -448,13 +438,19 @@ func main() {
 		}
 
 	case LOADCOMPARE:
-		agg, err := aggstatcmp.LabelURLAggDiffStatLoad(*diffReport)
+		var err error
+		stats.diffStat, err = aggtablecmp.Load(diffReport, maxErrors)
 		if err != nil {
 			log.Fatalf("can't load %s: %s", *diffReport, err.Error())
 		}
-		stats.diffStat = new(aggtablecmp.LabelDiffStat)
-		stats.diffStat.Init(agg, maxErrors)
-		agg.Reset()
+		stats.stat, err = aggtable.Load(report, maxErrors)
+		if err != nil {
+			log.Fatalf("can't load %s: %s", *report, err.Error())
+		}
+		stats.cmpStat, err = aggtable.Load(cmpReport, maxErrors)
+		if err != nil {
+			log.Fatalf("can't load %s: %s", *cmpReport, err.Error())
+		}
 		aggDiffReport(httpListen)
 	default:
 		log.Fatalf("unknown action: %d", action)

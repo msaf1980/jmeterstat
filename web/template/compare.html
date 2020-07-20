@@ -10,9 +10,22 @@
 <body>
 <table border="1">
 	<tr><th>Test</th><th>Started</th><th>Ended</th></tr>
-	<tr><td>{{ .Report.Title}}</td><td>{{ .Report.Started}}</td><td>{{ .Report.Ended}}</td></tr>
+	<tr><td>
+	{{if .Report.URL}}
+	<a href="/report">{{ .Report.Title}}</a>
+	{{else}}
+	{{ .Report.Title}}
+	{{end}}
+	</td><td>{{ .Report.Started}}</td><td>{{ .Report.Ended}}</td></tr>
 	<tr><th colspan="3">Compare with</th></tr>
-	<tr><td>{{ .CmpReport.Title}}</td><td>{{ .CmpReport.Started}}</td><td>{{ .CmpReport.Ended}}</td></tr>
+	<tr><td>
+	{{if .CmpReport.URL}}
+	<a href="/cmpreport">{{ .CmpReport.Title}}</a>
+	{{else}}
+	{{ .CmpReport.Title}}
+	{{end}}
+	</td>
+	<td>{{ .CmpReport.Started}}</td><td>{{ .CmpReport.Ended}}</td></tr>
 </table><br>
 <h3>Labels statistic</h3>
 {{range .Tables}}

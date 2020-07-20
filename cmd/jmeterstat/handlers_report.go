@@ -16,8 +16,9 @@ import (
 )
 
 type viewStat struct {
-	Report viewReport
-	Tables []viewTable
+	Report    viewReport
+	ReportURL string
+	Tables    []viewTable
 }
 
 // fill data for table responce for datatables.net
@@ -140,16 +141,8 @@ func tableRequests(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Requ
 	vars := mux.Vars(r)
 	if n, err := strconv.Atoi(vars["id"]); err == nil {
 		p, err := getDatablesParams(r)
-
-		fmt.Printf("\nTable ID: %d, draw: %d, start %d, length %d, order: column %d desc %v, search (with regex: %v): '%s'",
-			n, p.Draw, p.Start, p.Length, p.OrderCol, p.OrderDesc, p.SearchRegex, p.Search)
-
 		if err == nil {
 			respData := fillTableReq(n, stat, &p)
-
-			fmt.Printf("\nReturned table ID: %d, draw: %d, count %d (%d), filtered %d",
-				n, respData.Draw, respData.RecordsTotal, len(respData.Data), respData.RecordsFiltered)
-
 			resp, err := respData.MarshalJSON()
 			if err == nil {
 				_, _ = w.Write(resp)
@@ -215,7 +208,7 @@ func tableErrors(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Reques
 }
 
 // Generate page for view Jmeter satatistics
-func report(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
+func report(stat *aggtable.LabelStat, isCompare bool, w http.ResponseWriter, r *http.Request) {
 	source := "web/template/report.html"
 	t, err := Asset(source)
 	if err != nil {
@@ -240,11 +233,19 @@ func report(stat *aggtable.LabelStat, w http.ResponseWriter, r *http.Request) {
 		}
 		tmplParams := viewStat{
 			Report: viewReport{
-				Title:   stats.stat.Name,
+				Title:   stat.Name,
 				Started: time.Unix(stat.Started/1000, 0).Format(time.RFC3339),
 				Ended:   time.Unix(stat.Ended/1000, 0).Format(time.RFC3339),
 			},
 			Tables: tables,
+		}
+		if isCompare {
+			tmplParams.ReportURL = "cmpreport"
+		} else {
+			tmplParams.ReportURL = "report"
+		}
+		if stats.diffStat != nil {
+			tmplParams.Report.URL = true
 		}
 		err = tmpl.Execute(w, tmplParams)
 		if err != nil {

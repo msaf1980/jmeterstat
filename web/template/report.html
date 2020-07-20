@@ -8,6 +8,9 @@
 <title>Benchmark report {{ .Report.Title}}</title>
 </head>
 <body>
+	{{if .Report.URL}}
+	<a href="/">Back</a>
+	{{end}}	
 <table border="1">
 	<tr><th>Test</th><th>Started</th><th>Ended</th></tr>
 	<tr><td>{{ .Report.Title}}</td><td>{{ .Report.Started}}</td><td>{{ .Report.Ended}}</td></tr>
@@ -84,7 +87,7 @@
 		{{range .Tables}}		
 			$('#R{{ .ID}}').DataTable( {
 				serverSide: true,
-				ajax: '/report/requests/{{ .ID}}'
+				ajax: '/{{ $.ReportURL }}/requests/{{ .ID}}'
 			} );
 		{{end}}
 	} );
@@ -92,7 +95,7 @@
 		{{range .Tables}}		
 			$('#E{{ .ID}}').DataTable( {
 				serverSide: true,
-				ajax: '/report/errors/{{ .ID}}'
+				ajax: '/{{ $.ReportURL }}/errors/{{ .ID}}'
 			} );
 		{{end}}
 	} );	
