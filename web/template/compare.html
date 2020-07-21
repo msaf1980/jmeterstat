@@ -41,7 +41,7 @@
 <h3>Labels statistic</h3>
 {{range .Tables}}
 <div id="{{ .ID}}">
-<table border="1" id="R{{ .ID}}">
+<table border="1" cellspacing="0" id="R{{ .ID}}">
 	<thead>
 		<tr>
 			<th class="ten" rowspan="1" colspan="1">{{ .Label}}</th>
@@ -83,7 +83,7 @@
 		</tr>
 	</tfoot>
 </table>
-<table border="1" id="E{{ .ID}}">
+<table border="1" cellspacing="0" id="E{{ .ID}}">
 	<thead>
 		<tr>
 			<th class="ten">{{ .Label}}</th>
