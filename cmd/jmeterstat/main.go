@@ -179,14 +179,10 @@ func readCsv(csvFilename *string, urlTransformRule urltransform.URLTransformRule
 		var url string
 		if len(urlTransformRule) > 0 {
 			url, err = urltransform.URLTransform(jmtrRecord.URL, urlTransformRule)
-			if err != nil {
-				log.Fatalf("%s: %s", err.Error(), jmtrRecord.URL)
-			} else if len(url) == 0 {
+			if err != nil || len(url) == 0 {
 				url = jmtrRecord.URL
 			}
-			//fmt.Printf("%s\n", url)
 		} else {
-			//fmt.Printf("%v\n", jmtrRecord)
 			url = jmtrRecord.URL
 		}
 
