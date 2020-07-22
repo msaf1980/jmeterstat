@@ -277,7 +277,7 @@ func main() {
 
 	cpuProfile := fs.String("cpuprofile", "", "Write cpu profile to file")
 
-	name := fs.String("name", "", "Test name")
+	name := fs.String("name", "Undefined", "Test name")
 
 	out := fs.String("out", "", "Dir for store report")
 

@@ -9,13 +9,11 @@
 <style>
 	table { 
 		width: 100%; 
+		word-break: break-all;
 	} 
-	.ten { 
-		width: 10% 
-	} 
-	.twenty { 
-		width: 20%; 
-	}
+	div.container {
+        width: 80%;
+    }
 </style>
 </head>
 <body>
@@ -51,7 +49,7 @@
 			<th colspan="6" rowspan="1">Received (%))</th>
 		</tr>
 		<tr>
-			<th class="ten">Request</th>
+			<th style="max-width:20%; width:20%">Request</th>
 			<th>Errors %</th>
 			<th>Mean</th>
 			<th>Min</th>
@@ -86,7 +84,7 @@
 <table border="1" cellspacing="0" id="E{{ .ID}}">
 	<thead>
 		<tr>
-			<th class="ten">{{ .Label}}</th>
+			<th style="max-width:20%; width:20%">{{ .Label}}</th>
 			<th>Samples</th>
 			{{range $item := .Errors}}
 				<th>Errors</th>
